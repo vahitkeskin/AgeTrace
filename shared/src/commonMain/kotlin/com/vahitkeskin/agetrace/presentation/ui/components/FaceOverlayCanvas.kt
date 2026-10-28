@@ -74,6 +74,7 @@ fun FaceOverlayCanvas(
             val renderedH = imageHeight * scale
             val offsetX = (containerWidth - renderedW) / 2f
             val offsetY = (containerHeight - renderedH) / 2f
+            val highestConfidenceFace = faces.maxByOrNull { it.confidencePercentage }
 
             // 1. High-Precision Canvas Layer: Red Bounding Box & HUD Corner Brackets
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -111,26 +112,30 @@ fun FaceOverlayCanvas(
                     val fh = box.normalizedHeight * curRenderedH
 
                     val isSelected = (face.id == selectedFace?.id)
+                    val isHighestConfidence = (face.id == highestConfidenceFace?.id)
                     val boxColor = if (isSelected) Color(0xFFFF2A4D) else NeonRed
                     val strokeW = if (isSelected) 3.5f else 2.5f
 
                     // Header Tab attached directly on top of the box (Physical HUD tab)
-                    val tabHeight = 26f
-                    val tabY = if (fy >= tabHeight) fy - tabHeight else fy
-                    val tabWidth = min(fw.coerceAtLeast(115f), 155f)
+                    // Only rendered for the face box with the highest confidence percentage
+                    if (isHighestConfidence) {
+                        val tabHeight = 26f
+                        val tabY = if (fy >= tabHeight) fy - tabHeight else fy
+                        val tabWidth = min(fw.coerceAtLeast(115f), 155f)
 
-                    // Fill Header Tab
-                    drawRect(
-                        color = BackgroundDark.copy(alpha = 0.95f),
-                        topLeft = Offset(fx, tabY),
-                        size = Size(tabWidth, tabHeight)
-                    )
-                    drawRect(
-                        color = boxColor,
-                        topLeft = Offset(fx, tabY),
-                        size = Size(tabWidth, tabHeight),
-                        style = Stroke(width = strokeW)
-                    )
+                        // Fill Header Tab
+                        drawRect(
+                            color = BackgroundDark.copy(alpha = 0.95f),
+                            topLeft = Offset(fx, tabY),
+                            size = Size(tabWidth, tabHeight)
+                        )
+                        drawRect(
+                            color = boxColor,
+                            topLeft = Offset(fx, tabY),
+                            size = Size(tabWidth, tabHeight),
+                            style = Stroke(width = strokeW)
+                        )
+                    }
 
                     // Red Bounding Box (Main outline)
                     drawRect(
@@ -176,8 +181,7 @@ fun FaceOverlayCanvas(
                 }
             }
 
-            // 2. High-Contrast Interactive Badges Written Directly ON TOP of Each Box
-            // Allows distinguishing every individual from child (7 Age) to senior (70 Age) in group photos
+            // 2. High-Contrast Interactive Badge Displayed ONLY on the Highest Percentage Box
             val density = androidx.compose.ui.platform.LocalDensity.current
             for (face in faces) {
                 val box = face.boundingBox
@@ -186,16 +190,7 @@ fun FaceOverlayCanvas(
                 val fw = box.normalizedWidth * renderedW
                 val fh = box.normalizedHeight * renderedH
                 val isSelected = (face.id == selectedFace?.id)
-
-                // Positioned directly atop the upper edge of the bounding box
-                val badgeHeightPx = 26f
-                val badgeY = if (fy >= badgeHeightPx) {
-                    (fy - badgeHeightPx).roundToInt()
-                } else {
-                    fy.roundToInt()
-                }
-
-                val badgeX = fx.coerceIn(0f, (containerWidth - 120f).coerceAtLeast(0f)).roundToInt()
+                val isHighestConfidence = (face.id == highestConfidenceFace?.id)
 
                 // Interactive Face Box Area (Click anywhere on face to select)
                 val fwDp = with(density) { fw.toDp() }
@@ -209,59 +204,70 @@ fun FaceOverlayCanvas(
                     )
                 }
 
-                // Dedicated Header Badge attached directly on top of the box
-                Box(
-                    modifier = Modifier
-                        .offset { IntOffset(badgeX, badgeY) }
-                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
-                        .background(BackgroundDark.copy(alpha = 0.95f))
-                        .border(
-                            width = if (isSelected) 2.dp else 1.5.dp,
-                            color = if (isSelected) Color(0xFFFF2A4D) else NeonRed,
-                            shape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp)
-                        )
-                        .clickable { onFaceClick(face) }
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
+                // Dedicated Header Badge: Only displayed on top of the box with the highest confidence percentage
+                if (isHighestConfidence) {
+                    val badgeHeightPx = 26f
+                    val badgeY = if (fy >= badgeHeightPx) {
+                        (fy - badgeHeightPx).roundToInt()
+                    } else {
+                        fy.roundToInt()
+                    }
+
+                    val badgeX = fx.coerceIn(0f, (containerWidth - 120f).coerceAtLeast(0f)).roundToInt()
+
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset(badgeX, badgeY) }
+                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
+                            .background(BackgroundDark.copy(alpha = 0.95f))
+                            .border(
+                                width = if (isSelected) 2.dp else 1.5.dp,
+                                color = if (isSelected) Color(0xFFFF2A4D) else NeonRed,
+                                shape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp)
+                            )
+                            .clickable { onFaceClick(face) }
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
-                        // Sensor LED
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(if (isSelected) Color(0xFFFF3366) else NeonRed)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Sensor LED
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) Color(0xFFFF3366) else NeonRed)
+                            )
 
-                        Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
 
-                        // Net Yüzdelik Dilimi: %87
-                        Text(
-                            text = "%${face.confidencePercentage}",
-                            color = if (isSelected) Color(0xFFFF3366) else NeonRed,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            letterSpacing = 0.5.sp
-                        )
+                            // Net Yüzdelik Dilimi: %87
+                            Text(
+                                text = "%${face.confidencePercentage}",
+                                color = if (isSelected) Color(0xFFFF3366) else NeonRed,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 0.5.sp
+                            )
 
-                        Text(
-                            text = " - ",
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                            Text(
+                                text = " - ",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
 
-                        // Tahmin Edilen Yaş: 32 Age
-                        Text(
-                            text = "${face.estimatedAge} Age",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontFamily = FontFamily.Monospace,
-                            letterSpacing = 0.5.sp
-                        )
+                            // Tahmin Edilen Yaş: 32 Age
+                            Text(
+                                text = "${face.estimatedAge} Age",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
                     }
                 }
             }
