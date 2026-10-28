@@ -20,14 +20,28 @@ actual object PlatformPythonBridge {
             val tempFile = File.createTempFile("agetrace_input_", ".png")
             tempFile.writeBytes(imageBytes)
 
+            val userDir = System.getProperty("user.dir") ?: "."
+            val userHome = System.getProperty("user.home") ?: ""
             val candidatePaths = listOf(
+                File(userDir, "python/age_trace_detector.py"),
+                File(userDir, "../python/age_trace_detector.py"),
                 File("python/age_trace_detector.py"),
                 File("../python/age_trace_detector.py"),
-                File("AgeTrace/python/age_trace_detector.py")
+                File("AgeTrace/python/age_trace_detector.py"),
+                File(userHome, "AndroidStudioProjects/AgeTrace/python/age_trace_detector.py")
             )
-            val scriptFile = candidatePaths.find { it.exists() } ?: File("python/age_trace_detector.py")
+            val scriptFile = candidatePaths.find { it.exists() && it.isFile }
+                ?: File("/Users/vahitkeskin/AndroidStudioProjects/AgeTrace/python/age_trace_detector.py")
 
-            val process = ProcessBuilder("python3", scriptFile.absolutePath, tempFile.absolutePath)
+            val candidatePythons = listOf(
+                "/opt/homebrew/bin/python3",
+                "/usr/local/bin/python3",
+                "/usr/bin/python3",
+                "python3"
+            )
+            val pythonBin = candidatePythons.find { File(it).canExecute() } ?: "python3"
+
+            val process = ProcessBuilder(pythonBin, scriptFile.absolutePath, tempFile.absolutePath)
                 .redirectErrorStream(true)
                 .start()
 

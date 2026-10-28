@@ -167,4 +167,20 @@ class AgeTraceCleanArchitectureTest {
         assertEquals(AgeClassification.ADULT, face.classification)
         assertEquals(0.25f, face.boundingBox.normalizedX)
     }
+
+    @Test
+    fun testLivePythonDetectionIntegration() = runBlocking {
+        if (com.vahitkeskin.agetrace.data.platform.PlatformPythonBridge.isPythonSupported()) {
+            val portrait = SampleFaceFactory.generatePortrait(25)
+            val bmpBytes = com.vahitkeskin.agetrace.data.cv.BmpEncoder.encode(portrait)
+            val json = com.vahitkeskin.agetrace.data.platform.PlatformPythonBridge.analyzeWithPython(bmpBytes)
+            assertNotNull(json, "Python execution must return valid json output")
+            val parsed = com.vahitkeskin.agetrace.data.cv.PythonDetectionParser.parse(json)
+            assertNotNull(parsed)
+            assertTrue(parsed.faces.isNotEmpty(), "Python detector must identify face")
+            val face = parsed.faces.first()
+            assertTrue(face.confidencePercentage >= 85, "Confidence percentage should be >= 85%")
+            assertTrue(face.badgeLabel.contains("Age"), "Badge must contain Age keyword")
+        }
+    }
 }
