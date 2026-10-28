@@ -407,22 +407,24 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
     texture_roughness = min(0.95, max(0.02, math.sqrt(max(0.0, variance)) / 35.0))
     
     # 4. Scientifically Grounded Biological Age Regression
-    # Based on Farkas Craniofacial Anthropometry & Dermal Aging Models
-    if eye_height_ratio <= 0.44 and wrinkle_score < 0.14:
+    # Based on Farkas Craniofacial Anthropometry & Dermal Aging Multi-Factor Models
+    has_mature_skin = (texture_roughness >= 0.22) or (wrinkle_score >= 0.45)
+    
+    if eye_height_ratio <= 0.42 and not has_mature_skin:
         # Infant / Baby / Toddler morphology (0 to 3 years old)
         # Low eyes relative to cranium, compact lower third, smooth infant skin
-        raw_age = 1.0 + max(0.0, (eye_height_ratio - 0.35) / 0.09) * 2.0
-    elif eye_height_ratio <= 0.48 and wrinkle_score < 0.18:
+        raw_age = 1.0 + max(0.0, (eye_height_ratio - 0.20) / 0.22) * 2.0
+    elif eye_height_ratio <= 0.47 and not has_mature_skin:
         # Child / Minor morphology (4 to 12 years old)
-        raw_age = 4.0 + ((eye_height_ratio - 0.44) / 0.04) * 8.0 + (wrinkle_score * 3.0)
-    elif wrinkle_score < 0.20:
+        raw_age = 4.0 + max(0.0, (eye_height_ratio - 0.42) / 0.05) * 8.0 + (wrinkle_score * 2.0)
+    elif not has_mature_skin and wrinkle_score < 0.25:
         # Young Adult (18 to 26 years old)
-        raw_age = 18.0 + max(0.0, (eye_height_ratio - 0.46) / 0.05) * 6.0 + (texture_roughness * 4.0)
+        raw_age = 18.0 + max(0.0, (eye_height_ratio - 0.45) / 0.06) * 6.0 + (texture_roughness * 4.0)
     else:
         # Adult / Mature / Senior morphology (27 to 85+ years old)
-        base_adult = 26.0 + max(0.0, (eye_height_ratio - 0.46)) * 14.0
-        wrinkle_aging = (wrinkle_score ** 1.15) * 40.0
-        texture_aging = (texture_roughness ** 1.10) * 14.0
+        base_adult = 26.0 + max(0.0, (eye_height_ratio - 0.45)) * 10.0
+        wrinkle_aging = (wrinkle_score ** 1.15) * 36.0
+        texture_aging = (texture_roughness ** 1.10) * 12.0
         raw_age = base_adult + wrinkle_aging + texture_aging
         
     estimated_age = max(1, min(88, int(round(raw_age))))

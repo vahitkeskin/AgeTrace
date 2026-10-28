@@ -102,25 +102,27 @@ class BiometricAgeEstimator {
         }
 
         // 6. Scientifically Grounded Biological Age Regression
-        // Based on Farkas Craniofacial Anthropometry & Dermal Aging Models
+        // Based on Farkas Craniofacial Anthropometry & Dermal Aging Multi-Factor Models
+        val hasMatureSkin = (periorbitalScore >= 0.25f) || (skinTextureRoughness >= 0.22f) || (wrinkleScore >= 0.45f)
+
         val effectiveAge = when {
-            eyeHeightRatio <= 0.44f && wrinkleScore < 0.14f -> {
+            eyeHeightRatio <= 0.42f && !hasMatureSkin -> {
                 // Infant / Toddler (1 - 3 years old)
-                // Low eyes relative to cranium, chubby cheeks, smooth infant skin
-                1.0f + ((eyeHeightRatio - 0.35f).coerceAtLeast(0f) / 0.09f) * 2.0f
+                // Low eye level relative to cranium, chubby cheeks, smooth non-sagging baby skin
+                1.0f + ((eyeHeightRatio - 0.20f).coerceAtLeast(0f) / 0.22f) * 2.0f
             }
-            eyeHeightRatio <= 0.48f && wrinkleScore < 0.18f -> {
+            eyeHeightRatio <= 0.47f && !hasMatureSkin -> {
                 // Child / Minor (4 - 12 years old)
-                4.0f + ((eyeHeightRatio - 0.44f).coerceAtLeast(0f) / 0.04f) * 8.0f + (wrinkleScore * 3.0f)
+                4.0f + ((eyeHeightRatio - 0.42f).coerceAtLeast(0f) / 0.05f) * 8.0f + (wrinkleScore * 2.0f)
             }
-            wrinkleScore < 0.20f && periorbitalScore < 0.22f -> {
+            !hasMatureSkin && wrinkleScore < 0.25f -> {
                 // Young Adult (18 - 26 years old)
-                18.0f + ((eyeHeightRatio - 0.46f).coerceAtLeast(0f) / 0.05f) * 6.0f + (skinTextureRoughness * 4.0f)
+                18.0f + ((eyeHeightRatio - 0.45f).coerceAtLeast(0f) / 0.06f) * 6.0f + (skinTextureRoughness * 4.0f)
             }
             else -> {
                 // Adult / Mature / Senior (27 - 85 years old)
-                val baseAdult = 26.0f + ((eyeHeightRatio - 0.46f).coerceAtLeast(0f)) * 14.0f
-                val wrinkleAging = wrinkleScore * 40.0f + periorbitalScore * 20.0f
+                val baseAdult = 26.0f + ((eyeHeightRatio - 0.45f).coerceAtLeast(0f)) * 10.0f
+                val wrinkleAging = wrinkleScore * 36.0f + periorbitalScore * 20.0f
                 val textureAging = skinTextureRoughness * 12.0f
                 baseAdult + wrinkleAging + textureAging
             }
