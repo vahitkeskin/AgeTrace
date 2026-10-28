@@ -6,9 +6,9 @@ enum class VisionEngineType(
     val description: String
 ) {
     PYTHON_CORE(
-        title = "Python Vision Core",
-        icon = "🐍",
-        description = "PIL tabanlı Python Bilgisayarlı Görü Motoru"
+        title = "InsightFace Deep AI",
+        icon = "🧠",
+        description = "deepinsight/insightface SCRFD & GenderAge ONNX Derin Öğrenme Motoru"
     ),
     EDGE_AI_CORE(
         title = "Edge AI Core",

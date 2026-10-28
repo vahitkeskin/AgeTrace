@@ -47,9 +47,9 @@ class AnalyzeImageUseCase(
                             primaryConfidence = primaryFace.confidenceScore,
                             primaryAge = primaryFace.estimatedAge,
                             primaryClassification = primaryFace.classification,
-                            engineName = "Python Vision Core (PIL)",
+                            engineName = parsed.engine,
                             isFaceDetected = true,
-                            statusMessage = "${parsed.faces.size} Yüz Tespit Edildi • Python Analizi Tamamlandı"
+                            statusMessage = "${parsed.faces.size} Yüz Tespit Edildi • ${parsed.engine}"
                         ),
                         imageWidth = buffer.width,
                         imageHeight = buffer.height
