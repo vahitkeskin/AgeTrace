@@ -104,24 +104,29 @@ class BiometricAgeEstimator {
         // 6. Scientifically Grounded Multi-Zone Biological Age Regression
         // Based on Farkas Craniofacial Anthropometry & Multi-Zone Dermal Aging Models
         val effectiveAge = when {
-            // Infant / Toddler (1 - 3 years old): unwrinkled, ultra-smooth baby skin
-            wrinkleScore < 0.12f && skinTextureRoughness < 0.16f && periorbitalScore < 0.20f -> {
-                1.0f + (wrinkleScore / 0.12f) * 2.0f
+            // Infant / Toddler (1 - 3 years old): unwrinkled, ultra-smooth baby skin or low eye-line ratio
+            (wrinkleScore < 0.16f && periorbitalScore < 0.22f) || (eyeHeightRatio < 0.38f && wrinkleScore < 0.24f) -> {
+                val babyRatioFactor = if (eyeHeightRatio < 0.40f) 0.5f else 1.0f
+                (1.0f + (wrinkleScore / 0.16f) * 2.5f * babyRatioFactor).coerceIn(1.0f, 3.0f)
             }
-            // Child / Minor (4 - 15 years old): smooth youthful skin without mature creases
-            wrinkleScore < 0.22f && periorbitalScore < 0.28f -> {
-                4.0f + (wrinkleScore / 0.22f) * 11.0f
+            // Child (4 - 12 years old): smooth youthful skin without mature periorbital lines
+            wrinkleScore < 0.24f && periorbitalScore < 0.30f -> {
+                4.0f + ((wrinkleScore - 0.14f).coerceAtLeast(0f) / 0.10f) * 8.0f
             }
-            // Young Adult (18 - 26 years old): minimal resting wrinkles, youthful skin
-            wrinkleScore < 0.28f -> {
-                18.0f + ((wrinkleScore - 0.18f).coerceAtLeast(0f) / 0.10f) * 8.0f + (skinTextureRoughness * 4.0f)
+            // Teenager (13 - 17 years old): transitional minor
+            wrinkleScore < 0.28f && periorbitalScore < 0.34f -> {
+                13.0f + ((wrinkleScore - 0.24f).coerceAtLeast(0f) / 0.04f) * 4.0f
             }
-            // Adult / Mature / Senior (27 - 85 years old): expression lines and dermal maturation
+            // Young Adult (18 - 29 years old): mature eye ratio, minimal resting wrinkles
+            wrinkleScore < 0.38f -> {
+                18.0f + ((wrinkleScore - 0.28f).coerceAtLeast(0f) / 0.10f) * 11.0f + (skinTextureRoughness * 4.0f)
+            }
+            // Adult / Mature / Senior (30 - 85 years old): expression lines and dermal maturation
             else -> {
-                val baseAdult = 26.0f + ((eyeHeightRatio - 0.45f).coerceAtLeast(0f)) * 10.0f
-                val wrinkleAging = (wrinkleScore - 0.20f).coerceAtLeast(0f) * 45.0f + periorbitalScore * 18.0f
+                val baseAdult = 30.0f + ((eyeHeightRatio - 0.45f).coerceAtLeast(0f)) * 10.0f
+                val wrinkleAging = (wrinkleScore - 0.35f).coerceAtLeast(0f) * 45.0f + periorbitalScore * 20.0f
                 val textureAging = skinTextureRoughness * 12.0f
-                baseAdult + wrinkleAging + textureAging
+                (baseAdult + wrinkleAging + textureAging).coerceIn(30f, 85f)
             }
         }
 
