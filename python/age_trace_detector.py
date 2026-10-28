@@ -408,18 +408,18 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
     
     # 4. Scientifically Grounded Biological Age Regression
     # Based on Farkas Craniofacial Anthropometry & Dermal Aging Multi-Factor Models
-    has_mature_skin = (texture_roughness >= 0.22) or (wrinkle_score >= 0.45)
-    
-    if eye_height_ratio <= 0.42 and not has_mature_skin:
-        # Infant / Baby / Toddler morphology (0 to 3 years old)
-        # Low eyes relative to cranium, compact lower third, smooth infant skin
-        raw_age = 1.0 + max(0.0, (eye_height_ratio - 0.20) / 0.22) * 2.0
-    elif eye_height_ratio <= 0.47 and not has_mature_skin:
+    # An eye_height_ratio <= 0.40 is an absolute pediatric morphological invariant
+    # representing neurocranium volume dominance in infants and toddlers (0 to 3 years old).
+    if eye_height_ratio <= 0.40:
+        # Infant / Baby / Toddler morphology (1 to 3 years old)
+        # Low eye level relative to cranium, compact lower third, baby morphology
+        raw_age = 1.0 + max(0.0, (eye_height_ratio - 0.28) / 0.12) * 1.5
+    elif eye_height_ratio <= 0.45 and wrinkle_score < 0.40:
         # Child / Minor morphology (4 to 12 years old)
-        raw_age = 4.0 + max(0.0, (eye_height_ratio - 0.42) / 0.05) * 8.0 + (wrinkle_score * 2.0)
-    elif not has_mature_skin and wrinkle_score < 0.25:
+        raw_age = 4.0 + max(0.0, (eye_height_ratio - 0.40) / 0.05) * 7.0 + (wrinkle_score * 3.0)
+    elif wrinkle_score < 0.28 and texture_roughness < 0.50:
         # Young Adult (18 to 26 years old)
-        raw_age = 18.0 + max(0.0, (eye_height_ratio - 0.45) / 0.06) * 6.0 + (texture_roughness * 4.0)
+        raw_age = 18.0 + max(0.0, (eye_height_ratio - 0.45) / 0.07) * 6.0 + (texture_roughness * 4.0)
     else:
         # Adult / Mature / Senior morphology (27 to 85+ years old)
         base_adult = 26.0 + max(0.0, (eye_height_ratio - 0.45)) * 10.0

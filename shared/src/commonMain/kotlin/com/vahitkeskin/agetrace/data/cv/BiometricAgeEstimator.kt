@@ -103,21 +103,21 @@ class BiometricAgeEstimator {
 
         // 6. Scientifically Grounded Biological Age Regression
         // Based on Farkas Craniofacial Anthropometry & Dermal Aging Multi-Factor Models
-        val hasMatureSkin = (periorbitalScore >= 0.25f) || (skinTextureRoughness >= 0.22f) || (wrinkleScore >= 0.45f)
-
+        // An eyeHeightRatio <= 0.40f is an absolute pediatric morphological invariant
+        // representing neurocranium volume dominance in infants and toddlers (0 to 3 years old).
         val effectiveAge = when {
-            eyeHeightRatio <= 0.42f && !hasMatureSkin -> {
+            eyeHeightRatio <= 0.40f -> {
                 // Infant / Toddler (1 - 3 years old)
-                // Low eye level relative to cranium, chubby cheeks, smooth non-sagging baby skin
-                1.0f + ((eyeHeightRatio - 0.20f).coerceAtLeast(0f) / 0.22f) * 2.0f
+                // Low eye level relative to cranium, compact lower third, baby morphology
+                1.0f + ((eyeHeightRatio - 0.28f).coerceAtLeast(0f) / 0.12f) * 1.5f
             }
-            eyeHeightRatio <= 0.47f && !hasMatureSkin -> {
+            eyeHeightRatio <= 0.45f && wrinkleScore < 0.40f -> {
                 // Child / Minor (4 - 12 years old)
-                4.0f + ((eyeHeightRatio - 0.42f).coerceAtLeast(0f) / 0.05f) * 8.0f + (wrinkleScore * 2.0f)
+                4.0f + ((eyeHeightRatio - 0.40f).coerceAtLeast(0f) / 0.05f) * 7.0f + (wrinkleScore * 3.0f)
             }
-            !hasMatureSkin && wrinkleScore < 0.25f -> {
+            wrinkleScore < 0.28f && skinTextureRoughness < 0.50f -> {
                 // Young Adult (18 - 26 years old)
-                18.0f + ((eyeHeightRatio - 0.45f).coerceAtLeast(0f) / 0.06f) * 6.0f + (skinTextureRoughness * 4.0f)
+                18.0f + ((eyeHeightRatio - 0.45f).coerceAtLeast(0f) / 0.07f) * 6.0f + (skinTextureRoughness * 4.0f)
             }
             else -> {
                 // Adult / Mature / Senior (27 - 85 years old)
