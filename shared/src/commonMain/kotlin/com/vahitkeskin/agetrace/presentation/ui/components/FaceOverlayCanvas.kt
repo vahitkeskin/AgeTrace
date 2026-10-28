@@ -37,9 +37,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.domain.model.DetectedFace
-import com.vahitkeskin.agetrace.presentation.theme.BackgroundDark
-import com.vahitkeskin.agetrace.presentation.theme.CyanNeon
-import com.vahitkeskin.agetrace.presentation.theme.NeonRed
+import com.vahitkeskin.agetrace.presentation.theme.*
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -76,7 +74,7 @@ fun FaceOverlayCanvas(
             val offsetY = (containerHeight - renderedH) / 2f
             val highestConfidenceFace = faces.maxByOrNull { it.confidencePercentage }
 
-            // 1. High-Precision Canvas Layer: Red Bounding Box & HUD Corner Brackets
+            // 1. High-Precision Canvas Layer: Clean Rounded Bounding Boxes & Biometric Corner Accents
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val canvasW = size.width
                 val canvasH = size.height
@@ -86,24 +84,18 @@ fun FaceOverlayCanvas(
                 val curOffX = (canvasW - curRenderedW) / 2f
                 val curOffY = (canvasH - curRenderedH) / 2f
 
-                // Laser scanning sweep
+                // Subtle ambient scanning line (Smooth, non-intrusive)
                 if (isScanning) {
                     val scanY = curOffY + (curRenderedH * scanLineProgress)
                     drawLine(
-                        color = NeonRed.copy(alpha = 0.90f),
+                        color = Color(0x6638BDF8),
                         start = Offset(curOffX, scanY),
                         end = Offset(curOffX + curRenderedW, scanY),
-                        strokeWidth = 3f
-                    )
-                    drawLine(
-                        color = NeonRed.copy(alpha = 0.30f),
-                        start = Offset(curOffX, scanY - 8f),
-                        end = Offset(curOffX + curRenderedW, scanY - 8f),
-                        strokeWidth = 8f
+                        strokeWidth = 2f
                     )
                 }
 
-                // Precision Red Bounding Boxes
+                // Precision Bounding Boxes
                 for (face in faces) {
                     val box = face.boundingBox
                     val fx = curOffX + box.normalizedX * curRenderedW
@@ -112,76 +104,49 @@ fun FaceOverlayCanvas(
                     val fh = box.normalizedHeight * curRenderedH
 
                     val isSelected = (face.id == selectedFace?.id)
-                    val isHighestConfidence = (face.id == highestConfidenceFace?.id)
-                    val boxColor = if (isSelected) Color(0xFFFF2A4D) else NeonRed
-                    val strokeW = if (isSelected) 3.5f else 2.5f
+                    val frameColor = if (isSelected) NeonRed else Color(0xFF38BDF8)
+                    val strokeW = if (isSelected) 2.2f else 1.5f
 
-                    // Header Tab attached directly on top of the box (Physical HUD tab)
-                    // Only rendered for the face box with the highest confidence percentage
-                    if (isHighestConfidence) {
-                        val tabHeight = 26f
-                        val tabY = if (fy >= tabHeight) fy - tabHeight else fy
-                        val tabWidth = min(fw.coerceAtLeast(115f), 155f)
-
-                        // Fill Header Tab
-                        drawRect(
-                            color = BackgroundDark.copy(alpha = 0.95f),
-                            topLeft = Offset(fx, tabY),
-                            size = Size(tabWidth, tabHeight)
-                        )
-                        drawRect(
-                            color = boxColor,
-                            topLeft = Offset(fx, tabY),
-                            size = Size(tabWidth, tabHeight),
-                            style = Stroke(width = strokeW)
-                        )
-                    }
-
-                    // Red Bounding Box (Main outline)
-                    drawRect(
-                        color = boxColor,
+                    // Subtle, realistic rounded bounding box (Apple Vision & Google Lens style)
+                    drawRoundRect(
+                        color = frameColor,
                         topLeft = Offset(fx, fy),
                         size = Size(fw, fh),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f),
                         style = Stroke(width = strokeW)
                     )
 
-                    // Translucent interior red tint
-                    drawRect(
-                        color = boxColor.copy(alpha = if (isSelected) 0.16f else 0.08f),
+                    // Minimal, soft interior tint
+                    drawRoundRect(
+                        color = frameColor.copy(alpha = if (isSelected) 0.08f else 0.03f),
                         topLeft = Offset(fx, fy),
-                        size = Size(fw, fh)
+                        size = Size(fw, fh),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f)
                     )
 
-                    // Thick Cyber Corner Reticles (Military HUD aesthetic)
-                    val cornerLen = min(fw, fh) * 0.22f
-                    val bracketWidth = 5.0f
+                    // Subtle Corner Focus Brackets (Refined, elegant biometric markers)
+                    val cornerLen = min(fw, fh) * 0.16f
+                    val bracketW = strokeW + 1.2f
 
                     // Top-Left
-                    drawLine(boxColor, Offset(fx, fy), Offset(fx + cornerLen, fy), strokeWidth = bracketWidth)
-                    drawLine(boxColor, Offset(fx, fy), Offset(fx, fy + cornerLen), strokeWidth = bracketWidth)
+                    drawLine(frameColor, Offset(fx, fy + cornerLen), Offset(fx, fy + 4f), strokeWidth = bracketW)
+                    drawLine(frameColor, Offset(fx + 4f, fy), Offset(fx + cornerLen, fy), strokeWidth = bracketW)
 
                     // Top-Right
-                    drawLine(boxColor, Offset(fx + fw, fy), Offset(fx + fw - cornerLen, fy), strokeWidth = bracketWidth)
-                    drawLine(boxColor, Offset(fx + fw, fy), Offset(fx + fw, fy + cornerLen), strokeWidth = bracketWidth)
+                    drawLine(frameColor, Offset(fx + fw, fy + cornerLen), Offset(fx + fw, fy + 4f), strokeWidth = bracketW)
+                    drawLine(frameColor, Offset(fx + fw - cornerLen, fy), Offset(fx + fw - 4f, fy), strokeWidth = bracketW)
 
                     // Bottom-Left
-                    drawLine(boxColor, Offset(fx, fy + fh), Offset(fx + cornerLen, fy + fh), strokeWidth = bracketWidth)
-                    drawLine(boxColor, Offset(fx, fy + fh), Offset(fx, fy + fh - cornerLen), strokeWidth = bracketWidth)
+                    drawLine(frameColor, Offset(fx, fy + fh - cornerLen), Offset(fx, fy + fh - 4f), strokeWidth = bracketW)
+                    drawLine(frameColor, Offset(fx + 4f, fy + fh), Offset(fx + cornerLen, fy + fh), strokeWidth = bracketW)
 
                     // Bottom-Right
-                    drawLine(boxColor, Offset(fx + fw, fy + fh), Offset(fx + fw - cornerLen, fy + fh), strokeWidth = bracketWidth)
-                    drawLine(boxColor, Offset(fx + fw, fy + fh), Offset(fx + fw, fy + cornerLen), strokeWidth = bracketWidth)
-
-                    // Center Crosshair
-                    val cx = fx + fw / 2f
-                    val cy = fy + fh / 2f
-                    val chLen = 6f
-                    drawLine(boxColor.copy(alpha = 0.7f), Offset(cx - chLen, cy), Offset(cx + chLen, cy), strokeWidth = 2f)
-                    drawLine(boxColor.copy(alpha = 0.7f), Offset(cx, cy - chLen), Offset(cx, cy + chLen), strokeWidth = 2f)
+                    drawLine(frameColor, Offset(fx + fw, fy + fh - cornerLen), Offset(fx + fw, fy + fh - 4f), strokeWidth = bracketW)
+                    drawLine(frameColor, Offset(fx + fw - cornerLen, fy + fh), Offset(fx + fw - 4f, fy + fh), strokeWidth = bracketW)
                 }
             }
 
-            // 2. High-Contrast Interactive Badge Displayed ONLY on the Highest Percentage Box
+            // 2. High-Precision Frosted Pill Badge (Clean, realistic, floating gracefully only on highest percentage face)
             val density = androidx.compose.ui.platform.LocalDensity.current
             for (face in faces) {
                 val box = face.boundingBox
@@ -204,68 +169,67 @@ fun FaceOverlayCanvas(
                     )
                 }
 
-                // Dedicated Header Badge: Only displayed on top of the box with the highest confidence percentage
+                // Dedicated Frosted Pill Badge: Only displayed on top of the box with the highest confidence percentage
                 if (isHighestConfidence) {
-                    val badgeHeightPx = 26f
-                    val badgeY = if (fy >= badgeHeightPx) {
-                        (fy - badgeHeightPx).roundToInt()
+                    val badgeHeightPx = 28f
+                    val badgeY = if (fy >= badgeHeightPx + 6f) {
+                        (fy - badgeHeightPx - 6f).roundToInt()
                     } else {
-                        fy.roundToInt()
+                        (fy + 6f).roundToInt()
                     }
 
-                    val badgeX = fx.coerceIn(0f, (containerWidth - 120f).coerceAtLeast(0f)).roundToInt()
+                    val badgeX = fx.coerceIn(4f, (containerWidth - 130f).coerceAtLeast(4f)).roundToInt()
+                    val badgeBorderColor = if (isSelected) NeonRed.copy(alpha = 0.8f) else Color(0x33FFFFFF)
 
                     Box(
                         modifier = Modifier
                             .offset { IntOffset(badgeX, badgeY) }
-                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
-                            .background(BackgroundDark.copy(alpha = 0.95f))
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xE6101724))
                             .border(
-                                width = if (isSelected) 2.dp else 1.5.dp,
-                                color = if (isSelected) Color(0xFFFF2A4D) else NeonRed,
-                                shape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp)
+                                width = 1.dp,
+                                color = badgeBorderColor,
+                                shape = RoundedCornerShape(20.dp)
                             )
                             .clickable { onFaceClick(face) }
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Sensor LED
+                            // Subtle Status Indicator LED
                             Box(
                                 modifier = Modifier
-                                    .size(7.dp)
+                                    .size(6.dp)
                                     .clip(CircleShape)
-                                    .background(if (isSelected) Color(0xFFFF3366) else NeonRed)
+                                    .background(if (isSelected) NeonRed else Color(0xFF10B981))
                             )
 
                             Spacer(modifier = Modifier.width(6.dp))
 
-                            // Net Yüzdelik Dilimi: %87
+                            // Yüzdelik Oranı: %87
                             Text(
                                 text = "%${face.confidencePercentage}",
-                                color = if (isSelected) Color(0xFFFF3366) else NeonRed,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Black,
-                                fontFamily = FontFamily.Monospace,
-                                letterSpacing = 0.5.sp
-                            )
-
-                            Text(
-                                text = " - ",
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-
-                            // Tahmin Edilen Yaş: 32 Age
-                            Text(
-                                text = "${face.estimatedAge} Age",
                                 color = Color.White,
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontFamily = FontFamily.Monospace,
-                                letterSpacing = 0.5.sp
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.2.sp
+                            )
+
+                            Text(
+                                text = " • ",
+                                color = TextMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+
+                            // Tahmin Edilen Yaş: 32 Yaş
+                            Text(
+                                text = "${face.estimatedAge} Yaş",
+                                color = if (isSelected) NeonRed else Color(0xFF38BDF8),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0.2.sp
                             )
                         }
                     }
@@ -274,4 +238,5 @@ fun FaceOverlayCanvas(
         }
     }
 }
+
 

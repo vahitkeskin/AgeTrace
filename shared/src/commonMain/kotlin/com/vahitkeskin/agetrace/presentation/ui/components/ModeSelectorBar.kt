@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,38 +39,33 @@ fun ModeSelectorBar(
 ) {
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(SurfaceCard.copy(alpha = 0.85f))
-            .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+            .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         DetectionMode.entries.forEach { mode ->
             val isSelected = (mode == selectedMode)
             val bgColor by animateColorAsState(
-                targetValue = if (isSelected) NeonRed.copy(alpha = 0.20f) else Color.Transparent,
+                targetValue = if (isSelected) Color(0xFF26334A) else Color.Transparent,
                 label = "mode_bg"
-            )
-            val borderColor by animateColorAsState(
-                targetValue = if (isSelected) NeonRed else Color.Transparent,
-                label = "mode_border"
             )
 
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(9.dp))
                     .background(bgColor)
-                    .border(1.dp, borderColor, RoundedCornerShape(10.dp))
                     .clickable { onModeChange(mode) }
-                    .padding(vertical = 10.dp, horizontal = 12.dp),
+                    .padding(vertical = 8.dp, horizontal = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (mode == DetectionMode.LIVE_CAMERA && isCameraStreaming) {
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
+                                .size(6.dp)
                                 .clip(CircleShape)
                                 .background(NeonRed)
                         )
@@ -81,12 +74,12 @@ fun ModeSelectorBar(
                     Text(
                         text = mode.title,
                         color = if (isSelected) TextPrimary else TextMuted,
-                        fontSize = 13.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        fontFamily = FontFamily.Monospace
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                     )
                 }
             }
         }
     }
 }
+

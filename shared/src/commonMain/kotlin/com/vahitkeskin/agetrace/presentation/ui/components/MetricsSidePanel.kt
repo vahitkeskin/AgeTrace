@@ -21,14 +21,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.domain.model.AgeClassification
 import com.vahitkeskin.agetrace.domain.model.AnalysisMetrics
 import com.vahitkeskin.agetrace.domain.model.DetectedFace
-import com.vahitkeskin.agetrace.presentation.theme.CyanNeon
+import com.vahitkeskin.agetrace.presentation.theme.GlassBorder
 import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicCard
 import com.vahitkeskin.agetrace.presentation.theme.GreenSuccess
 import com.vahitkeskin.agetrace.presentation.theme.NeonRed
@@ -47,53 +46,53 @@ fun MetricsSidePanel(
     val confidence = selectedFace?.confidencePercentage ?: metrics.confidencePercentage
     val confFraction = (confidence / 100f).coerceIn(0f, 1f)
     val classification = selectedFace?.classification ?: metrics.primaryClassification ?: AgeClassification.ADULT
-    val isAdult = classification.isAdult
+    val estimatedAge = selectedFace?.estimatedAge ?: metrics.primaryAge
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. Prominent Accuracy & Confidence Percentage Card (NET YÜZDELİK DİLİMİ)
+        // 1. Primary Intelligence Result: Estimated Age & Confidence Rating
         GlassmorphicCard(
             modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 18.dp,
-            borderColor = NeonRed.copy(alpha = 0.40f)
+            cornerRadius = 16.dp,
+            backgroundColor = SurfaceCard.copy(alpha = 0.90f),
+            borderColor = GlassBorder
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(modifier = Modifier.padding(18.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "DOĞRULUK & GÜVEN YÜZDESİ",
+                        text = "BİYOLOJİK YAŞ ANALİZİ",
                         color = TextSecondary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 1.sp
+                        letterSpacing = 0.8.sp
                     )
 
+                    // Classification Pill Badge (e.g., Yetişkin, Çocuk, Kıdemli)
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0x20FF1744))
-                            .border(1.dp, NeonRed.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0x1810B981))
+                            .border(1.dp, Color(0x3310B981), RoundedCornerShape(20.dp))
+                            .padding(horizontal = 9.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = if (confidence >= 80) "YÜKSEK GÜVEN" else "STANDART",
-                            color = NeonRed,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
+                            text = classification.title,
+                            color = GreenSuccess,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Net, Büyük ve Belirgin Yüzdelik Değer
+                // Age & Label
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Bottom,
@@ -101,139 +100,88 @@ fun MetricsSidePanel(
                 ) {
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
-                            text = "%$confidence",
-                            color = NeonRed,
-                            fontSize = 46.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Model Doğruluğu",
-                            color = TextMuted,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .padding(bottom = 6.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0x2210B981))
-                            .border(1.dp, GreenSuccess, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = classification.title,
-                            color = GreenSuccess,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Confidence Progress Bar
-                LinearProgressIndicator(
-                    progress = { confFraction },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(5.dp)),
-                    color = NeonRed,
-                    trackColor = Color(0x33333333)
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("%0 Min", color = TextMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                    Text("%50 Nominal", color = TextMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                    Text("%100 Peak", color = NeonRed, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                }
-            }
-        }
-
-        // 2. Tahmin Edilen Yaş ve Biyometrik Kohort
-        GlassmorphicCard(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 18.dp
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = "TAHMİN EDİLEN BİYOLOJİK YAŞ",
-                    color = TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 1.sp
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = selectedFace?.estimatedAge?.toString() ?: metrics.primaryAge?.toString() ?: "--",
+                            text = estimatedAge?.toString() ?: "--",
                             color = TextPrimary,
                             fontSize = 44.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontFamily = FontFamily.Monospace
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Yaşında",
-                            color = TextSecondary,
-                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            letterSpacing = (-0.5).sp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (estimatedAge != null) "Yaşında" else "Fotoğraf Bekleniyor",
+                            color = TextSecondary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
 
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = "Yaş Grubu",
+                            text = "Kohort",
                             color = TextMuted,
                             fontSize = 11.sp
                         )
                         Text(
                             text = classification.rangeLabel,
                             color = TextPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Confidence Accuracy Bar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Model Doğruluk Oranı",
+                        color = TextMuted,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        text = "%$confidence",
+                        color = Color(0xFF38BDF8),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                LinearProgressIndicator(
+                    progress = { confFraction },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
+                    color = Color(0xFF38BDF8),
+                    trackColor = Color(0x22FFFFFF)
+                )
             }
         }
 
-        // 3. Biometric Feature Breakdown (Gerçek Bilgisayarlı Görü Verileri)
+        // 2. Biometric Feature Breakdown (Computer Vision Metrics)
         if (selectedFace != null) {
             val bio = selectedFace.biometrics
             GlassmorphicCard(
                 modifier = Modifier.fillMaxWidth(),
-                cornerRadius = 18.dp
+                cornerRadius = 16.dp,
+                backgroundColor = SurfaceCard.copy(alpha = 0.90f),
+                borderColor = GlassBorder
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
-                        text = "BİYOMETRİK ÖZELLİK ANALİZİ",
+                        text = "BİYOMETRİK ÖZNİTELİK VERİLERİ",
                         color = TextSecondary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 1.sp
+                        letterSpacing = 0.8.sp
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -247,7 +195,7 @@ fun MetricsSidePanel(
                         value = "%${(bio.wrinkleDensityScore * 100).roundToInt()}"
                     )
                     MetricRow(
-                        label = "Cilt Doku Pürüzlülüğü",
+                        label = "Cilt Doku Varyansı",
                         value = "%${(bio.skinTextureVariance * 100).roundToInt()}"
                     )
                     MetricRow(
@@ -258,10 +206,12 @@ fun MetricsSidePanel(
             }
         }
 
-        // 4. Donanım & Çıkarım Performansı
+        // 3. System & Hardware Telemetry Card
         GlassmorphicCard(
             modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 18.dp
+            cornerRadius = 16.dp,
+            backgroundColor = SurfaceCard.copy(alpha = 0.90f),
+            borderColor = GlassBorder
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
                 Text(
@@ -269,8 +219,7 @@ fun MetricsSidePanel(
                     color = TextSecondary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 1.sp
+                    letterSpacing = 0.8.sp
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -284,12 +233,12 @@ fun MetricsSidePanel(
                     value = "${metrics.inferenceTimeMs} ms"
                 )
                 MetricRow(
-                    label = "Çözünürlük",
+                    label = "Görsel Çözünürlüğü",
                     value = metrics.imageResolution
                 )
                 MetricRow(
                     label = "Tespit Edilen Yüz",
-                    value = "${metrics.facesFoundCount} Adet"
+                    value = "${metrics.facesFoundCount} Kişi"
                 )
             }
         }
@@ -314,8 +263,8 @@ private fun MetricRow(label: String, value: String) {
             text = value,
             color = TextPrimary,
             fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = FontFamily.Monospace
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
+

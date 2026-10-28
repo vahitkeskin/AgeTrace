@@ -23,16 +23,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.domain.model.ImageSource
-import com.vahitkeskin.agetrace.presentation.theme.CyanNeon
+import com.vahitkeskin.agetrace.presentation.theme.AccentBlue
 import com.vahitkeskin.agetrace.presentation.theme.GlassBorder
 import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicCard
-import com.vahitkeskin.agetrace.presentation.theme.NeonRed
 import com.vahitkeskin.agetrace.presentation.theme.SurfaceCard
+import com.vahitkeskin.agetrace.presentation.theme.SurfaceCardHover
 import com.vahitkeskin.agetrace.presentation.theme.TextMuted
 import com.vahitkeskin.agetrace.presentation.theme.TextPrimary
 import com.vahitkeskin.agetrace.presentation.theme.TextSecondary
@@ -47,50 +46,49 @@ fun FileUploadDropZone(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 1. Native Gallery / File System Trigger Card
+        // 1. Native Gallery / File System Trigger Card (Clean & Simple)
         GlassmorphicCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(14.dp))
                 .clickable { onPickFileClick() },
-            cornerRadius = 16.dp,
-            backgroundColor = SurfaceCard.copy(alpha = 0.92f),
-            borderColor = NeonRed.copy(alpha = 0.55f)
+            cornerRadius = 14.dp,
+            backgroundColor = SurfaceCard.copy(alpha = 0.90f),
+            borderColor = GlassBorder
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
-                            .background(NeonRed.copy(alpha = 0.20f))
-                            .border(1.dp, NeonRed, CircleShape),
+                            .background(Color(0x1F3B82F6))
+                            .border(1.dp, Color(0x333B82F6), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "🖼️",
-                            fontSize = 20.sp
+                            text = "📁",
+                            fontSize = 18.sp
                         )
                     }
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Galeriden veya Dosyalardan Seç",
+                            text = "Fotoğraf Seç veya Yükle",
                             color = TextPrimary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "Android Galeri • iOS Fotoğraflar • Masaüstü Dosyaları",
+                            text = "Galeri, Kamera Rulosu veya Dosyalar",
                             color = TextMuted,
                             fontSize = 11.sp
                         )
@@ -100,41 +98,40 @@ fun FileUploadDropZone(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(NeonRed)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .background(AccentBlue)
+                        .padding(horizontal = 14.dp, vertical = 7.dp)
                 ) {
                     Text(
-                        text = "Fotoğraf Seç",
+                        text = "Gözat",
                         color = Color.White,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
         }
 
-        // 2. Curated Benchmark Gallery with horizontal scrolling for non-overlapping mobile UX
+        // 2. Curated Benchmark Gallery
         if (sampleFaces.isNotEmpty()) {
             Column {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 2.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "BİYOMETRİK REFERANS SETİ",
+                        text = "TEST REFERANS PORTRELERİ",
                         color = TextSecondary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 0.8.sp,
-                        modifier = Modifier.padding(horizontal = 4.dp)
+                        letterSpacing = 0.8.sp
                     )
                     Text(
-                        text = "5 Farklı Yaş Grubu",
-                        color = CyanNeon,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace
+                        text = "${sampleFaces.size} Örnek Set",
+                        color = TextMuted,
+                        fontSize = 11.sp
                     )
                 }
 
@@ -148,12 +145,12 @@ fun FileUploadDropZone(
                 ) {
                     sampleFaces.forEach { sample ->
                         val isSelected = (currentImageSource is ImageSource.PreloadedSample && currentImageSource.id == sample.id)
-                        val borderColor = if (isSelected) NeonRed else GlassBorder
-                        val bgColor = if (isSelected) NeonRed.copy(alpha = 0.16f) else SurfaceCard.copy(alpha = 0.60f)
+                        val borderColor = if (isSelected) Color(0xFF38BDF8) else GlassBorder
+                        val bgColor = if (isSelected) Color(0x2238BDF8) else SurfaceCard.copy(alpha = 0.70f)
 
                         Box(
                             modifier = Modifier
-                                .width(120.dp)
+                                .width(126.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(bgColor)
                                 .border(1.dp, borderColor, RoundedCornerShape(12.dp))
@@ -165,16 +162,14 @@ fun FileUploadDropZone(
                                 Text(
                                     text = sample.title.substringBefore(" ("),
                                     color = if (isSelected) TextPrimary else TextSecondary,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                 )
-                                Spacer(modifier = Modifier.height(3.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = sample.expectedAgeBracket,
-                                    color = if (isSelected) NeonRed else TextMuted,
-                                    fontSize = 9.sp,
-                                    fontFamily = FontFamily.Monospace
+                                    color = if (isSelected) Color(0xFF38BDF8) else TextMuted,
+                                    fontSize = 10.sp
                                 )
                             }
                         }
@@ -184,3 +179,4 @@ fun FileUploadDropZone(
         }
     }
 }
+
