@@ -48,21 +48,21 @@ class EdgeAiFaceDetector {
 
         val candidates = mutableListOf<RawFaceCandidate>()
 
-        // 2. Multi-scale sliding window search across typical human face scales
-        // Supports multi-person group photos with people of varying ages (7 to 70 years old)
-        val scales = floatArrayOf(0.10f, 0.16f, 0.24f, 0.35f, 0.48f, 0.65f)
+        // 2. Multi-scale sliding window search across typical human face scales (20% to 58%)
+        // Calibrated for individual portraits and multi-person group photos
+        val scales = floatArrayOf(0.20f, 0.32f, 0.44f, 0.58f)
         val aspectRatios = floatArrayOf(1.24f, 1.36f)
 
         for (scale in scales) {
             val boxW = (scanWidth * scale).toInt()
-            if (boxW < 14) continue
+            if (boxW < 24) continue
 
             for (aspect in aspectRatios) {
                 val boxH = (boxW * aspect).toInt()
                 if (boxH >= scanHeight) continue
 
-                val stepX = (boxW * 0.25f).toInt().coerceAtLeast(3)
-                val stepY = (boxH * 0.25f).toInt().coerceAtLeast(3)
+                val stepX = (boxW * 0.25f).toInt().coerceAtLeast(4)
+                val stepY = (boxH * 0.25f).toInt().coerceAtLeast(4)
 
                 var y = 0
                 while (y + boxH <= scanHeight) {
@@ -195,7 +195,7 @@ class EdgeAiFaceDetector {
             )
         }
 
-        return nonMaximumSuppression(candidates, iouThreshold = 0.28f).take(16)
+        return nonMaximumSuppression(candidates).take(16)
     }
 
     /**
@@ -300,12 +300,14 @@ class EdgeAiFaceDetector {
     }
 
     private fun nonMaximumSuppression(
-        candidates: List<RawFaceCandidate>,
-        iouThreshold: Float
+        candidates: List<RawFaceCandidate>
     ): List<RawFaceCandidate> {
         if (candidates.isEmpty()) return emptyList()
 
-        val sorted = candidates.sortedByDescending { it.confidence }.toMutableList()
+        // Prioritize candidates that frame the full head/face over smaller sub-patches
+        val sorted = candidates.sortedByDescending { 
+            it.confidence * (1.0f + it.boundingBox.normalizedWidth * 0.6f) 
+        }.toMutableList()
         val selected = mutableListOf<RawFaceCandidate>()
 
         while (sorted.isNotEmpty()) {
@@ -313,14 +315,25 @@ class EdgeAiFaceDetector {
             selected.add(current)
 
             sorted.removeAll { other ->
-                computeIoU(current.boundingBox, other.boundingBox) > iouThreshold
+                isSameFace(current.boundingBox, other.boundingBox)
             }
         }
 
         return selected
     }
 
-    private fun computeIoU(a: BoundingBox, b: BoundingBox): Float {
+    private fun isSameFace(a: BoundingBox, b: BoundingBox): Boolean {
+        // 1. Spatial proximity on the same person's head:
+        // Two boxes whose horizontal and vertical centers align within the span of a single head belong to the same person
+        val dx = abs(a.centerX - b.centerX)
+        val dy = abs(a.centerY - b.centerY)
+        val maxW = max(a.normalizedWidth, b.normalizedWidth)
+        val maxH = max(a.normalizedHeight, b.normalizedHeight)
+
+        if (dx < maxW * 0.75f && dy < maxH * 0.80f) {
+            return true
+        }
+
         val interLeft = max(a.left, b.left)
         val interTop = max(a.top, b.top)
         val interRight = min(a.right, b.right)
@@ -330,10 +343,22 @@ class EdgeAiFaceDetector {
         val interHeight = max(0f, interBottom - interTop)
         val interArea = interWidth * interHeight
 
+        if (interArea <= 0f) return false
+
         val areaA = a.normalizedWidth * a.normalizedHeight
         val areaB = b.normalizedWidth * b.normalizedHeight
+        val minArea = min(areaA, areaB)
         val unionArea = areaA + areaB - interArea
 
-        return if (unionArea > 0f) interArea / unionArea else 0f
+        // Standard IoU
+        val iou = if (unionArea > 0f) interArea / unionArea else 0f
+        if (iou > 0.20f) return true
+
+        // IoMin (Containment)
+        val ioMin = if (minArea > 0f) interArea / minArea else 0f
+        if (ioMin > 0.35f) return true
+
+        return false
     }
 }
+

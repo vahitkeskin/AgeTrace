@@ -61,19 +61,19 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
                 if y > max_y: max_y = y
                 
     candidates = []
-    # Multi-scale sliding window search for group photos (7 to 70 years old)
-    scales = [0.10, 0.16, 0.24, 0.35, 0.48, 0.65]
+    # Multi-scale sliding window search across typical human face scales (20% to 58%)
+    scales = [0.20, 0.32, 0.44, 0.58]
     aspect_ratios = [1.25, 1.36]
     
     for scale in scales:
         bw = int(scan_w * scale)
-        if bw < 14: continue
+        if bw < 24: continue
         for aspect in aspect_ratios:
             bh = int(bw * aspect)
             if bh >= scan_h: continue
             
-            step_x = max(3, int(bw * 0.25))
-            step_y = max(3, int(bh * 0.25))
+            step_x = max(4, int(bw * 0.25))
+            step_y = max(4, int(bh * 0.25))
             
             y = 0
             while y + bh <= scan_h:
@@ -167,21 +167,42 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
             "confidence": 0.84
         })
 
-    # NMS
-    candidates.sort(key=lambda c: c["confidence"], reverse=True)
+    # NMS with Spatial Proximity, IoU, and IoMin Containment suppression
+    candidates.sort(key=lambda c: c["confidence"] * (1.0 + c["w"] * 0.6), reverse=True)
     selected = []
     for cand in candidates:
         overlap = False
         for s in selected:
+            c_cx = cand["x"] + cand["w"] / 2.0
+            c_cy = cand["y"] + cand["h"] / 2.0
+            s_cx = s["x"] + s["w"] / 2.0
+            s_cy = s["y"] + s["h"] / 2.0
+            dx = abs(c_cx - s_cx)
+            dy = abs(c_cy - s_cy)
+            max_w = max(cand["w"], s["w"])
+            max_h = max(cand["h"], s["h"])
+
+            # 1. Spatial proximity on the same person's head
+            if dx < max_w * 0.75 and dy < max_h * 0.80:
+                overlap = True
+                break
+
             ix = max(cand["x"], s["x"])
             iy = max(cand["y"], s["y"])
             iw = max(0.0, min(cand["x"] + cand["w"], s["x"] + s["w"]) - ix)
             ih = max(0.0, min(cand["y"] + cand["h"], s["y"] + s["h"]) - iy)
             inter = iw * ih
-            union = (cand["w"] * cand["h"]) + (s["w"] * s["h"]) - inter
-            if union > 0 and (inter / union) > 0.28:
-                overlap = True
-                break
+            if inter > 0:
+                area_c = cand["w"] * cand["h"]
+                area_s = s["w"] * s["h"]
+                union = area_c + area_s - inter
+                iou = inter / union if union > 0 else 0
+                min_area = min(area_c, area_s)
+                io_min = inter / min_area if min_area > 0 else 0
+
+                if iou > 0.20 or io_min > 0.35:
+                    overlap = True
+                    break
         if not overlap:
             selected.append(cand)
             if len(selected) >= 16: break

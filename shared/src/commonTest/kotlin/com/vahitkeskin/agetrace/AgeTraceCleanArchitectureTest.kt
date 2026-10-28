@@ -61,6 +61,7 @@ class AgeTraceCleanArchitectureTest {
         val candidates = detector.detect(portraitBuffer)
 
         assertTrue(candidates.isNotEmpty(), "At least one face candidate must be detected in portrait")
+        assertEquals(1, candidates.size, "Single portrait must yield exactly 1 face candidate without duplicate nested boxes")
         val primary = candidates.first()
         assertTrue(primary.confidence > 0.60f, "Face detection confidence should be > 60%")
         assertTrue(primary.boundingBox.normalizedWidth in 0.15f..0.85f)
