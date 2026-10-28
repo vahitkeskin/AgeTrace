@@ -93,12 +93,6 @@ fun DetectedFaceAvatarsStrip(
                     letterSpacing = 0.3.sp
                 )
             }
-
-            Text(
-                text = "Seçmek için dokunun",
-                color = Color(0xFF94A3B8),
-                fontSize = 11.sp
-            )
         }
 
         // Horizontal Row of Head Avatars with Age Info

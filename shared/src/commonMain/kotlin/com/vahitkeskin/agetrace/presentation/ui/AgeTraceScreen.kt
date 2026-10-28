@@ -44,9 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.vahitkeskin.agetrace.data.platform.PlatformImageBridge
 import com.vahitkeskin.agetrace.domain.model.DetectionMode
-import com.vahitkeskin.agetrace.domain.model.VisionEngineType
 import com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract
 import com.vahitkeskin.agetrace.presentation.mvi.AgeTraceViewModel
 import com.vahitkeskin.agetrace.presentation.theme.BackgroundDark
@@ -101,27 +99,18 @@ fun AgeTraceScreen(
                 .fillMaxSize()
                 .padding(horizontal = 22.dp, vertical = 18.dp)
         ) {
-            // 1. Executive Top Header (Clean, balanced, non-squeezing)
-            ExecutiveHeader(
+            // 1. Sleek Minimal Header (Unified title, status, mode toggle, and reset)
+            MinimalHeader(
                 isAnalyzing = state.isAnalyzing,
-                selectedEngine = state.selectedEngine,
+                selectedMode = state.selectedMode,
+                isCameraStreaming = state.isCameraStreaming,
+                onModeChange = { mode -> viewModel.handleIntent(AgeTraceContract.Intent.ChangeMode(mode)) },
                 onClearClick = { viewModel.handleIntent(AgeTraceContract.Intent.ClearCurrentAnalysis) }
             )
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 2. Master Control Deck (Mode + Engine selectors separated cleanly)
-            ControlDeck(
-                selectedMode = state.selectedMode,
-                isCameraStreaming = state.isCameraStreaming,
-                selectedEngine = state.selectedEngine,
-                onModeChange = { mode -> viewModel.handleIntent(AgeTraceContract.Intent.ChangeMode(mode)) },
-                onEngineChange = { engine -> viewModel.handleIntent(AgeTraceContract.Intent.ChangeEngine(engine)) }
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // 3. Responsive Workspace: Viewport & Overlay + Live Metrics Panel
+            // 2. Responsive Workspace: Viewport & Overlay + Live Metrics Panel
             BoxWithConstraints(modifier = Modifier.weight(1f)) {
                 val isWide = maxWidth >= 880.dp
 
@@ -164,18 +153,6 @@ fun AgeTraceScreen(
                                     currentImageSource = state.currentImageSource,
                                     onPickFileClick = { galleryLauncher() },
                                     onSelectSample = { sample -> viewModel.handleIntent(AgeTraceContract.Intent.SelectSample(sample)) }
-                                )
-
-                                DirectPathInputRow(
-                                    onPathSubmit = { path ->
-                                        val bytes = PlatformImageBridge.readBytesFromPath(path)
-                                        if (bytes != null) {
-                                            val fileName = path.substringAfterLast('/').substringAfterLast('\\')
-                                            viewModel.handleIntent(
-                                                AgeTraceContract.Intent.OnFileUploaded(fileName, bytes)
-                                            )
-                                        }
-                                    }
                                 )
                             }
                         }
@@ -226,18 +203,6 @@ fun AgeTraceScreen(
                                 onPickFileClick = { galleryLauncher() },
                                 onSelectSample = { sample -> viewModel.handleIntent(AgeTraceContract.Intent.SelectSample(sample)) }
                             )
-
-                            DirectPathInputRow(
-                                onPathSubmit = { path ->
-                                    val bytes = PlatformImageBridge.readBytesFromPath(path)
-                                    if (bytes != null) {
-                                        val fileName = path.substringAfterLast('/').substringAfterLast('\\')
-                                        viewModel.handleIntent(
-                                            AgeTraceContract.Intent.OnFileUploaded(fileName, bytes)
-                                        )
-                                    }
-                                }
-                            )
                         }
 
                         MetricsSidePanel(
@@ -245,6 +210,8 @@ fun AgeTraceScreen(
                             metrics = state.metrics,
                             selectedFace = state.selectedFace
                         )
+
+                        Spacer(modifier = Modifier.height(28.dp))
                     }
                 }
             }
@@ -253,74 +220,45 @@ fun AgeTraceScreen(
 }
 
 @Composable
-private fun ExecutiveHeader(
+private fun MinimalHeader(
     isAnalyzing: Boolean,
-    selectedEngine: VisionEngineType,
+    selectedMode: DetectionMode,
+    isCameraStreaming: Boolean,
+    onModeChange: (DetectionMode) -> Unit,
     onClearClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // App Identity
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        Brush.linearGradient(listOf(Color(0xFF2563EB), Color(0xFF1D4ED8)))
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "◈",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "AgeTrace",
-                        color = TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.3).sp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0x1F3B82F6))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "AI VISION",
-                            color = Color(0xFF38BDF8),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
-                }
-                Text(
-                    text = "Biyometrik Yüz Algılama & Yaş Tahmini",
-                    color = TextMuted,
-                    fontSize = 11.sp
-                )
-            }
-        }
-
-        // Actions & Status
+        // App Title with small glowing status dot
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "AgeTrace",
+                color = TextPrimary,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.5).sp
+            )
+            // Tiny green active status dot
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF10B981))
+            )
+        }
+
+        // Action controls: Clean Mode Pill [ Fotoğraf | Kamera ] + Subtle Reset
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (isAnalyzing) {
                 CircularProgressIndicator(
@@ -330,188 +268,64 @@ private fun ExecutiveHeader(
                 )
             }
 
-            // Status Chip
-            Box(
+            // Compact Mode Selector Pill
+            Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0x1410B981))
-                    .border(1.dp, Color(0x3310B981), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(SurfaceCard.copy(alpha = 0.85f))
+                    .border(1.dp, GlassBorder, RoundedCornerShape(20.dp))
+                    .padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                DetectionMode.entries.forEach { mode ->
+                    val isSelected = (mode == selectedMode)
                     Box(
                         modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(GreenSuccess)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (selectedEngine == VisionEngineType.PYTHON_CORE) "Python ML" else "Edge AI",
-                        color = GreenSuccess,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            // Reset Action Button
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(SurfaceCard)
-                    .border(1.dp, GlassBorder, RoundedCornerShape(8.dp))
-                    .clickable { onClearClick() }
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = "Sıfırla",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ControlDeck(
-    selectedMode: DetectionMode,
-    isCameraStreaming: Boolean,
-    selectedEngine: VisionEngineType,
-    onModeChange: (DetectionMode) -> Unit,
-    onEngineChange: (VisionEngineType) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Mode Selector (Segmented Pill)
-        Row(
-            modifier = Modifier
-                .weight(1.2f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(SurfaceCard.copy(alpha = 0.90f))
-                .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
-                .padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            DetectionMode.entries.forEach { mode ->
-                val isSelected = (mode == selectedMode)
-                val bgColor by animateColorAsState(
-                    targetValue = if (isSelected) Color(0xFF26334A) else Color.Transparent,
-                    label = "mode_bg"
-                )
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(bgColor)
-                        .clickable { onModeChange(mode) }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (mode == DetectionMode.LIVE_CAMERA && isCameraStreaming) {
-                            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(NeonRed))
-                            Spacer(modifier = Modifier.width(6.dp))
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isSelected) Color(0xFF26334A) else Color.Transparent)
+                            .clickable { onModeChange(mode) }
+                            .padding(horizontal = 12.dp, vertical = 5.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (mode == DetectionMode.LIVE_CAMERA && isCameraStreaming) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(NeonRed)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text(
+                                text = if (mode == DetectionMode.IMAGE_UPLOAD) "Fotoğraf" else "Kamera",
+                                color = if (isSelected) TextPrimary else TextMuted,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                            )
                         }
-                        Text(
-                            text = if (mode == DetectionMode.IMAGE_UPLOAD) "Fotoğraf Yükle" else "Canlı Kamera",
-                            color = if (isSelected) TextPrimary else TextMuted,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                        )
                     }
                 }
             }
-        }
 
-        // Engine Selector (Segmented Pill)
-        Row(
-            modifier = Modifier
-                .weight(1.0f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(SurfaceCard.copy(alpha = 0.90f))
-                .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
-                .padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            VisionEngineType.entries.forEach { engine ->
-                val isSelected = (engine == selectedEngine)
-                val bgColor by animateColorAsState(
-                    targetValue = if (isSelected) Color(0xFF26334A) else Color.Transparent,
-                    label = "eng_bg"
+            // Reset Button (Icon only, subtle and polite)
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(SurfaceCard.copy(alpha = 0.85f))
+                    .border(1.dp, GlassBorder, CircleShape)
+                    .clickable { onClearClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "↺",
+                    color = TextSecondary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(bgColor)
-                        .clickable { onEngineChange(engine) }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = engine.title.substringBefore(" "),
-                        color = if (isSelected) TextPrimary else TextMuted,
-                        fontSize = 12.sp,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                    )
-                }
             }
-        }
-    }
-}
-
-@Composable
-private fun DirectPathInputRow(
-    onPathSubmit: (String) -> Unit
-) {
-    var pathText by remember { mutableStateOf("") }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(SurfaceCard.copy(alpha = 0.85f))
-            .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        OutlinedTextField(
-            value = pathText,
-            onValueChange = { pathText = it },
-            placeholder = { Text("Doğrudan görsel dosya yolu (/Users/.../foto.jpg)", color = TextMuted, fontSize = 11.sp) },
-            modifier = Modifier.weight(1f),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.Transparent,
-                unfocusedBorderColor = Color.Transparent,
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary
-            )
-        )
-
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (pathText.isNotBlank()) Color(0xFF2563EB) else Color(0x22FFFFFF))
-                .clickable(enabled = pathText.isNotBlank()) {
-                    onPathSubmit(pathText.trim().removeSurrounding("\"").removeSurrounding("'"))
-                }
-                .padding(horizontal = 14.dp, vertical = 7.dp)
-        ) {
-            Text(
-                text = "Yükle",
-                color = if (pathText.isNotBlank()) Color.White else TextMuted,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
         }
     }
 }
