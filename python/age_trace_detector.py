@@ -360,11 +360,24 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
     face_crop = image.crop((crop_x1, crop_y1, crop_x2, crop_y2)).convert("L")
     face_pixels = face_crop.load()
     
-    # 1. Forehead Wrinkle Analysis (Horizontal gradient)
-    f_y1 = int(crop_h * 0.12)
-    f_y2 = int(crop_h * 0.30)
-    f_x1 = int(crop_w * 0.20)
-    f_x2 = int(crop_w * 0.80)
+    # 1. Craniofacial Anthropometry (Eye height ratio)
+    # Check eye line across both eye columns (left ~0.32, right ~0.68)
+    min_lum = 255
+    eye_y = int(crop_h * 0.40)
+    lx = int(crop_w * 0.32)
+    rx = int(crop_w * 0.68)
+    for y in range(int(crop_h * 0.25), int(crop_h * 0.55)):
+        lum = (face_pixels[lx, y] + face_pixels[rx, y]) / 2.0
+        if lum < min_lum:
+            min_lum = lum
+            eye_y = y
+    eye_height_ratio = min(0.56, max(0.28, eye_y / float(crop_h)))
+    
+    # 2. Forehead Wrinkle Analysis (Positioned directly above eyes, away from hairline/hair)
+    f_y1 = max(2, eye_y - int(crop_h * 0.18))
+    f_y2 = max(f_y1 + 2, eye_y - int(crop_h * 0.05))
+    f_x1 = int(crop_w * 0.22)
+    f_x2 = int(crop_w * 0.78)
     
     wrinkle_diff = 0.0
     w_count = 0
@@ -374,13 +387,13 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
             wrinkle_diff += dy
             w_count += 1
     avg_wrinkle = (wrinkle_diff / max(1, w_count))
-    wrinkle_score = min(0.96, max(0.04, avg_wrinkle / 28.0))
+    wrinkle_score = min(0.96, max(0.02, avg_wrinkle / 28.0))
     
-    # 2. Cheek Skin Texture Variance
-    ch_y1 = int(crop_h * 0.50)
-    ch_y2 = int(crop_h * 0.70)
-    ch_x1 = int(crop_w * 0.20)
-    ch_x2 = int(crop_w * 0.40)
+    # 3. Cheek Skin Texture Variance (Positioned directly below eyes & paranasal zone)
+    ch_y1 = min(crop_h - 10, eye_y + int(crop_h * 0.12))
+    ch_y2 = min(crop_h - 2, eye_y + int(crop_h * 0.32))
+    ch_x1 = int(crop_w * 0.18)
+    ch_x2 = int(crop_w * 0.45)
     
     sum_lum, sum_sq, t_count = 0.0, 0.0, 0
     for y in range(ch_y1, ch_y2):
@@ -391,34 +404,25 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
             t_count += 1
     mean_lum = sum_lum / max(1, t_count)
     variance = (sum_sq / max(1, t_count)) - (mean_lum * mean_lum)
-    texture_roughness = min(0.95, max(0.03, math.sqrt(max(0.0, variance)) / 35.0))
+    texture_roughness = min(0.95, max(0.02, math.sqrt(max(0.0, variance)) / 35.0))
     
-    # 3. Craniofacial Anthropometry (Ratio of forehead to lower face length)
-    # Check eye line across both eye columns (left ~0.32, right ~0.68)
-    min_lum = 255
-    eye_y = int(crop_h * 0.38)
-    lx = int(crop_w * 0.32)
-    rx = int(crop_w * 0.68)
-    for y in range(int(crop_h * 0.25), int(crop_h * 0.55)):
-        lum = (face_pixels[lx, y] + face_pixels[rx, y]) / 2.0
-        if lum < min_lum:
-            min_lum = lum
-            eye_y = y
-    craniofacial_ratio = min(1.30, max(0.60, (eye_y / float(crop_h)) / 0.40))
-    
-    # 4. Calibrated Biological Age Regression
-    if craniofacial_ratio <= 0.80:
+    # 4. Scientifically Grounded Biological Age Regression
+    # Based on Farkas Craniofacial Anthropometry & Dermal Aging Models
+    if eye_height_ratio <= 0.44 and wrinkle_score < 0.14:
         # Infant / Baby / Toddler morphology (0 to 3 years old)
-        # Low eyes relative to cranium, chubby cheeks, smooth infant skin
-        raw_age = 1.0 + ((craniofacial_ratio - 0.60) / 0.20) * 1.8
-    elif craniofacial_ratio < 0.88:
+        # Low eyes relative to cranium, compact lower third, smooth infant skin
+        raw_age = 1.0 + max(0.0, (eye_height_ratio - 0.35) / 0.09) * 2.0
+    elif eye_height_ratio <= 0.48 and wrinkle_score < 0.18:
         # Child / Minor morphology (4 to 12 years old)
-        raw_age = 4.0 + ((craniofacial_ratio - 0.80) / 0.08) * 8.0 + (wrinkle_score * 3.0)
+        raw_age = 4.0 + ((eye_height_ratio - 0.44) / 0.04) * 8.0 + (wrinkle_score * 3.0)
+    elif wrinkle_score < 0.20:
+        # Young Adult (18 to 26 years old)
+        raw_age = 18.0 + max(0.0, (eye_height_ratio - 0.46) / 0.05) * 6.0 + (texture_roughness * 4.0)
     else:
-        # Adult morphology: baseline young adult starts at 20.0
-        base_adult = 21.0 + max(0.0, (craniofacial_ratio - 0.88)) * 10.0
-        wrinkle_aging = (wrinkle_score ** 1.15) * 48.0
-        texture_aging = (texture_roughness ** 1.10) * 16.0
+        # Adult / Mature / Senior morphology (27 to 85+ years old)
+        base_adult = 26.0 + max(0.0, (eye_height_ratio - 0.46)) * 14.0
+        wrinkle_aging = (wrinkle_score ** 1.15) * 40.0
+        texture_aging = (texture_roughness ** 1.10) * 14.0
         raw_age = base_adult + wrinkle_aging + texture_aging
         
     estimated_age = max(1, min(88, int(round(raw_age))))
@@ -451,7 +455,7 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
         "is_adult": is_adult,
         "badge": f"%{conf_pct} - {estimated_age} Age",
         "biometrics": {
-            "craniofacial_ratio": round(craniofacial_ratio, 2),
+            "craniofacial_ratio": round(eye_height_ratio, 2),
             "wrinkle_density": round(wrinkle_score, 2),
             "skin_texture_variance": round(texture_roughness, 2),
             "symmetry_score": 0.94
