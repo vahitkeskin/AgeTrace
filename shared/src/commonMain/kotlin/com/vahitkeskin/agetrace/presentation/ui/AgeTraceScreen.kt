@@ -60,6 +60,7 @@ import com.vahitkeskin.agetrace.presentation.theme.SurfaceCard
 import com.vahitkeskin.agetrace.presentation.theme.TextMuted
 import com.vahitkeskin.agetrace.presentation.theme.TextPrimary
 import com.vahitkeskin.agetrace.presentation.theme.TextSecondary
+import com.vahitkeskin.agetrace.presentation.ui.components.DetectedFaceAvatarsStrip
 import com.vahitkeskin.agetrace.presentation.ui.components.FaceOverlayCanvas
 import com.vahitkeskin.agetrace.presentation.ui.components.FileUploadDropZone
 import com.vahitkeskin.agetrace.presentation.ui.components.MetricsSidePanel
@@ -146,6 +147,16 @@ fun AgeTraceScreen(
                                 onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) }
                             )
 
+                            if (state.detectedFaces.isNotEmpty()) {
+                                DetectedFaceAvatarsStrip(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    faces = state.detectedFaces,
+                                    pixelBuffer = state.pixelBuffer,
+                                    selectedFace = state.selectedFace,
+                                    onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) }
+                                )
+                            }
+
                             if (state.selectedMode == DetectionMode.IMAGE_UPLOAD) {
                                 FileUploadDropZone(
                                     modifier = Modifier.fillMaxWidth(),
@@ -195,6 +206,17 @@ fun AgeTraceScreen(
                             onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
                             onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) }
                         )
+
+                        // Head Avatars Strip positioned directly above the File Upload Card
+                        if (state.detectedFaces.isNotEmpty()) {
+                            DetectedFaceAvatarsStrip(
+                                modifier = Modifier.fillMaxWidth(),
+                                faces = state.detectedFaces,
+                                pixelBuffer = state.pixelBuffer,
+                                selectedFace = state.selectedFace,
+                                onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) }
+                            )
+                        }
 
                         if (state.selectedMode == DetectionMode.IMAGE_UPLOAD) {
                             FileUploadDropZone(

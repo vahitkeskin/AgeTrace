@@ -14,10 +14,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -38,6 +41,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -218,67 +222,73 @@ fun FaceOverlayCanvas(
                     )
                 }
 
-                // Dedicated High-Contrast Floating Badge for EVERY Detected Face (Pixel-Synchronized)
-                val badgeEstimatedWidthPx = with(density) { 132.dp.toPx() }
-                val badgeEstimatedHeightPx = with(density) { 34.dp.toPx() }
-                val spacingPx = with(density) { 6.dp.toPx() }
+                // Dedicated High-Contrast Floating Badge placed directly ABOVE the face box
+                // Constrained strictly to NOT exceed the box width (fwDp)
+                val badgeHeightDp = 22.dp
+                val badgeHeightPx = with(density) { badgeHeightDp.toPx() }
                 val isSelected = (face.id == selectedFace?.id)
-
-                // Place badge immediately adjacent to the right bracket of the face
-                val maxBadgeX = (containerWidthPx - badgeEstimatedWidthPx).coerceAtLeast(0f)
-                val preferredBadgeXPx = fxPx + fwPx + spacingPx
-                val rawBadgeXPx = if (preferredBadgeXPx + badgeEstimatedWidthPx <= containerWidthPx) {
-                    preferredBadgeXPx
-                } else if (fxPx >= badgeEstimatedWidthPx + spacingPx) {
-                    fxPx - badgeEstimatedWidthPx - spacingPx
-                } else {
-                    maxBadgeX
-                }
-                val badgeXPx = rawBadgeXPx.coerceIn(0f, maxBadgeX)
-
-                val maxBadgeY = (containerHeightPx - badgeEstimatedHeightPx).coerceAtLeast(0f)
-                val badgeYPx = (fyPx + fhPx * 0.38f - badgeEstimatedHeightPx / 2f)
-                    .coerceIn(0f, maxBadgeY)
-
                 val themeColor = if (face.classification.isAdult) Color(0xFFEF4444) else Color(0xFF10B981)
+
+                // Position: Directly above the face box if room permits; otherwise just inside the top
+                val badgeYPx = if (fyPx >= badgeHeightPx + 4f) {
+                    fyPx - badgeHeightPx - 4f
+                } else {
+                    fyPx + 4f
+                }
+                val badgeXPx = fxPx.coerceIn(0f, (containerWidthPx - fwPx).coerceAtLeast(0f))
+
+                val labelText = if (fwDp < 38.dp) {
+                    "${face.estimatedAge}"
+                } else if (fwDp < 52.dp) {
+                    "%${face.confidencePercentage} • ${face.estimatedAge}"
+                } else if (fwDp < 80.dp) {
+                    "%${face.confidencePercentage} - ${face.estimatedAge}"
+                } else {
+                    "%${face.confidencePercentage} - ${face.estimatedAge} Age"
+                }
+
+                val fontSize = if (fwDp < 45.dp) 8.sp else if (fwDp < 60.dp) 9.sp else if (fwDp < 80.dp) 10.sp else 11.sp
 
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(badgeXPx.roundToInt(), badgeYPx.roundToInt()) }
+                        .width(fwDp)
+                        .height(badgeHeightDp)
                         .shadow(
-                            elevation = if (isSelected) 10.dp else 6.dp,
-                            shape = RoundedCornerShape(12.dp),
-                            spotColor = if (isSelected) themeColor.copy(alpha = 0.45f) else Color(0x55000000),
-                            ambientColor = Color(0x33000000)
+                            elevation = if (isSelected) 8.dp else 3.dp,
+                            shape = RoundedCornerShape(6.dp),
+                            spotColor = if (isSelected) themeColor else Color.Black
                         )
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xF00F172A))
                         .border(
-                            width = if (isSelected) 2.dp else 1.2.dp,
-                            color = if (isSelected) themeColor else themeColor.copy(alpha = 0.4f),
-                            shape = RoundedCornerShape(12.dp)
+                            width = if (isSelected) 1.5.dp else 1.dp,
+                            color = if (isSelected) Color.White else themeColor.copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(6.dp)
                         )
                         .clickable { onFaceClick(face) }
-                        .padding(horizontal = 14.dp, vertical = 7.dp)
+                        .padding(horizontal = 2.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        // Colored indicator dot (Green for minor, Red/Coral for adult)
                         Box(
                             modifier = Modifier
-                                .size(7.dp)
+                                .size(4.dp)
                                 .clip(CircleShape)
                                 .background(themeColor)
                         )
-                        // Text: e.g. "%92 - 33 Age" or "%82 - 2 Age"
+                        Spacer(modifier = Modifier.width(2.5.dp))
                         Text(
-                            text = "%${face.confidencePercentage} - ${face.estimatedAge} Age",
-                            color = Color(0xFF0F172A),
-                            fontSize = 13.sp,
+                            text = labelText,
+                            color = Color.White,
+                            fontSize = fontSize,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.2.sp
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
