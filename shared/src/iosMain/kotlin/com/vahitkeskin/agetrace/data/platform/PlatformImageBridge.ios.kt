@@ -19,4 +19,6 @@ actual object PlatformImageBridge {
     actual fun openFilePicker(onFilePicked: (name: String, bytes: ByteArray) -> Unit) {
         // iOS UIImagePickerController
     }
+
+    actual fun readBytesFromPath(path: String): ByteArray? = null
 }

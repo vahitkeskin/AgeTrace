@@ -14,10 +14,10 @@ import io
 import json
 import math
 import time
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 
 try:
-    from PIL import Image, ImageOps, ImageFilter
+    from PIL import Image
 except ImportError:
     print(json.dumps({"error": "PIL/Pillow is required. Install via: pip install Pillow"}), file=sys.stderr)
     sys.exit(1)
@@ -25,7 +25,6 @@ except ImportError:
 
 def is_skin_pixel(r: int, g: int, b: int) -> bool:
     """YCbCr Chrominance skin segmentation (Chai & Ngan, Kovac et al.)"""
-    # ITU-R BT.601 conversion
     cb = -0.168736 * r - 0.331264 * g + 0.500000 * b + 128.0
     cr = 0.500000 * r - 0.418688 * g - 0.081312 * b + 128.0
     
@@ -35,10 +34,9 @@ def is_skin_pixel(r: int, g: int, b: int) -> bool:
 
 
 def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
-    """Multi-scale face detection using skin clustering and anthropometric facial features."""
+    """Multi-scale face detection calibrated to tightly frame the head and face."""
     orig_w, orig_h = image.size
     
-    # Resize for high-speed multi-scale scan (~160px width)
     scan_w = 160
     scan_h = int((scan_w / orig_w) * orig_h)
     scan_h = max(120, min(240, scan_h))
@@ -46,7 +44,6 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
     small_img = image.resize((scan_w, scan_h), Image.Resampling.BILINEAR).convert("RGB")
     pixels = small_img.load()
     
-    # 1. Build skin binary map
     skin_map = [[False for _ in range(scan_w)] for _ in range(scan_h)]
     skin_count = 0
     min_x, max_x = scan_w, 0
@@ -64,10 +61,8 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
                 if y > max_y: max_y = y
                 
     candidates = []
-    
-    # Multi-scale sliding window evaluation
-    scales = [0.35, 0.48, 0.62, 0.76]
-    aspect_ratios = [1.22, 1.36, 1.48]
+    scales = [0.32, 0.45, 0.58, 0.74]
+    aspect_ratios = [1.25, 1.35, 1.48]
     
     for scale in scales:
         bw = int(scan_w * scale)
@@ -76,20 +71,18 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
             bh = int(bw * aspect)
             if bh >= scan_h: continue
             
-            step_x = max(6, int(bw * 0.22))
-            step_y = max(6, int(bh * 0.22))
+            step_x = max(6, int(bw * 0.20))
+            step_y = max(6, int(bh * 0.20))
             
             y = 0
             while y + bh <= scan_h:
                 x = 0
                 while x + bw <= scan_w:
-                    # Skin density in candidate window
                     window_skin = sum(skin_map[cy][cx] for cy in range(y, y + bh) for cx in range(x, x + bw))
                     density = window_skin / float(bw * bh)
                     
-                    if 0.32 <= density <= 0.92:
-                        # Eye Valley evaluation
-                        eye_top = y + int(bh * 0.28)
+                    if 0.30 <= density <= 0.94:
+                        eye_top = y + int(bh * 0.26)
                         eye_bottom = y + int(bh * 0.50)
                         forehead_top = y + int(bh * 0.08)
                         
@@ -98,33 +91,35 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
                         f_count = max(1, (eye_top - forehead_top) * int(bw * 0.5))
                         avg_f_lum = forehead_lum / f_count
                         
-                        left_eye_lum = sum((0.299 * pixels[cx, cy][0] + 0.587 * pixels[cx, cy][1] + 0.114 * pixels[cx, cy][2])
-                                           for cy in range(eye_top, eye_bottom) for cx in range(x + int(bw * 0.15), x + int(bw * 0.45)))
-                        le_count = max(1, (eye_bottom - eye_top) * int(bw * 0.3))
-                        avg_le_lum = left_eye_lum / le_count
+                        eye_lum = sum((0.299 * pixels[cx, cy][0] + 0.587 * pixels[cx, cy][1] + 0.114 * pixels[cx, cy][2])
+                                      for cy in range(eye_top, eye_bottom) for cx in range(x + int(bw * 0.20), x + int(bw * 0.80)))
+                        e_count = max(1, (eye_bottom - eye_top) * int(bw * 0.6))
+                        avg_e_lum = eye_lum / e_count
                         
-                        right_eye_lum = sum((0.299 * pixels[cx, cy][0] + 0.587 * pixels[cx, cy][1] + 0.114 * pixels[cx, cy][2])
-                                            for cy in range(eye_top, eye_bottom) for cx in range(x + int(bw * 0.55), x + int(bw * 0.85)))
-                        re_count = max(1, (eye_bottom - eye_top) * int(bw * 0.3))
-                        avg_re_lum = right_eye_lum / re_count
-                        
-                        eye_contrast = (avg_f_lum - (avg_le_lum + avg_re_lum) / 2.0)
-                        if eye_contrast > 5.0:
-                            score = min(0.96, max(0.65, 0.50 + (density * 0.25) + (eye_contrast / 80.0) * 0.25))
+                        contrast = avg_f_lum - avg_e_lum
+                        if contrast > 4.0:
+                            score = min(0.96, max(0.68, 0.55 + (density * 0.20) + (contrast / 80.0) * 0.25))
+                            
+                            # Expand slightly to tightly frame head from crown to chin
+                            head_y = max(0, int(y - bh * 0.06))
+                            head_h = min(scan_h - head_y, int(bh * 1.12))
+                            head_x = max(0, int(x - bw * 0.03))
+                            head_w = min(scan_w - head_x, int(bw * 1.06))
+                            
                             candidates.append({
-                                "x": x / float(scan_w),
-                                "y": y / float(scan_h),
-                                "w": bw / float(scan_w),
-                                "h": bh / float(scan_h),
+                                "x": head_x / float(scan_w),
+                                "y": head_y / float(scan_h),
+                                "w": head_w / float(scan_w),
+                                "h": head_h / float(scan_h),
                                 "confidence": score
                             })
                     x += step_x
                 y += step_y
 
-    # Fallback to skin centroid if lighting was challenging
+    # Fallback to skin cluster bounding box
     if not candidates and skin_count > (scan_w * scan_h * 0.05):
-        bw = max(int(scan_w * 0.35), min(int(scan_w * 0.80), max_x - min_x))
-        bh = max(int(scan_h * 0.45), min(int(scan_h * 0.85), max_y - min_y))
+        bw = max(int(scan_w * 0.35), min(int(scan_w * 0.85), max_x - min_x))
+        bh = max(int(scan_h * 0.45), min(int(scan_h * 0.90), max_y - min_y))
         bx = max(0, min(scan_w - bw, (min_x + max_x) // 2 - bw // 2))
         by = max(0, min(scan_h - bh, (min_y + max_y) // 2 - bh // 2))
         candidates.append({
@@ -132,32 +127,30 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
             "y": by / float(scan_h),
             "w": bw / float(scan_w),
             "h": bh / float(scan_h),
-            "confidence": 0.82
+            "confidence": 0.86
         })
     elif not candidates:
-        # Standard central framing fallback
         candidates.append({
-            "x": 0.22,
-            "y": 0.14,
-            "w": 0.56,
-            "h": 0.72,
-            "confidence": 0.80
+            "x": 0.20,
+            "y": 0.12,
+            "w": 0.60,
+            "h": 0.76,
+            "confidence": 0.84
         })
 
-    # Non-maximum suppression (NMS)
+    # NMS
     candidates.sort(key=lambda c: c["confidence"], reverse=True)
     selected = []
     for cand in candidates:
         overlap = False
         for s in selected:
-            # Simple IoU check
             ix = max(cand["x"], s["x"])
             iy = max(cand["y"], s["y"])
             iw = max(0.0, min(cand["x"] + cand["w"], s["x"] + s["w"]) - ix)
             ih = max(0.0, min(cand["y"] + cand["h"], s["y"] + s["h"]) - iy)
             inter = iw * ih
             union = (cand["w"] * cand["h"]) + (s["w"] * s["h"]) - inter
-            if union > 0 and (inter / union) > 0.35:
+            if union > 0 and (inter / union) > 0.32:
                 overlap = True
                 break
         if not overlap:
@@ -168,7 +161,7 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
 
 
 def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[str, Any]:
-    """Extracts biological aging features from cropped face pixels."""
+    """Extracts biological aging features from face pixels."""
     orig_w, orig_h = image.size
     crop_x1 = int(bbox["x"] * orig_w)
     crop_y1 = int(bbox["y"] * orig_h)
@@ -197,7 +190,7 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
     avg_wrinkle = (wrinkle_diff / max(1, w_count))
     wrinkle_score = min(0.96, max(0.04, avg_wrinkle / 28.0))
     
-    # 2. Cheek Skin Texture Variance (Smooth in youth, textured in mature)
+    # 2. Cheek Skin Texture Variance
     ch_y1 = int(crop_h * 0.50)
     ch_y2 = int(crop_h * 0.70)
     ch_x1 = int(crop_w * 0.20)
@@ -214,7 +207,7 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
     variance = (sum_sq / max(1, t_count)) - (mean_lum * mean_lum)
     texture_roughness = min(0.95, max(0.03, math.sqrt(max(0.0, variance)) / 35.0))
     
-    # 3. Craniofacial Anthropometry (Eye position ratio)
+    # 3. Craniofacial Anthropometry
     min_lum = 255
     eye_y = int(crop_h * 0.40)
     for y in range(int(crop_h * 0.32), int(crop_h * 0.52)):
@@ -232,7 +225,6 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
     raw_age = int(round(base_morphology * 0.25 + wrinkle_contrib * 0.55 + texture_contrib * 0.20))
     estimated_age = max(6, min(88, raw_age))
     
-    # Classification
     if estimated_age < 18:
         classification = "18- Minor"
         is_adult = False
@@ -249,15 +241,16 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
         classification = "18+ Senior"
         is_adult = True
         
-    confidence = min(0.96, max(0.74, 0.80 + (0.15 * (1.0 - abs(wrinkle_score - 0.5)))))
+    confidence = min(0.96, max(0.76, 0.82 + (0.12 * (1.0 - abs(wrinkle_score - 0.5)))))
+    conf_pct = int(round(confidence * 100))
     
     return {
         "estimated_age": estimated_age,
         "confidence": round(confidence, 2),
-        "confidence_percentage": int(round(confidence * 100)),
+        "confidence_percentage": conf_pct,
         "classification": classification,
         "is_adult": is_adult,
-        "badge": f"%{int(round(confidence * 100))} - {estimated_age} Age",
+        "badge": f"%{conf_pct} - {estimated_age} Age",
         "biometrics": {
             "craniofacial_ratio": round(craniofacial_ratio, 2),
             "wrinkle_density": round(wrinkle_score, 2),
@@ -312,7 +305,6 @@ def analyze_image(image_bytes: bytes) -> Dict[str, Any]:
 
 
 def run_http_server(port: int = 8080):
-    """Launches high-performance multi-threaded HTTP API server."""
     from http.server import HTTPServer, BaseHTTPRequestHandler
     
     class AgeTraceHandler(BaseHTTPRequestHandler):
@@ -348,7 +340,6 @@ def run_http_server(port: int = 8080):
                 content_len = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_len)
                 
-                # Check if body is raw image bytes or base64 JSON
                 image_bytes = body
                 if body.startswith(b"{"):
                     try:

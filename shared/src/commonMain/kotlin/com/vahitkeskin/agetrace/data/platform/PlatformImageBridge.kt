@@ -7,4 +7,5 @@ expect object PlatformImageBridge {
     fun decodeByteArrayToPixelBuffer(bytes: ByteArray): PixelBuffer?
     fun pixelBufferToImageBitmap(pixelBuffer: PixelBuffer): ImageBitmap
     fun openFilePicker(onFilePicked: (name: String, bytes: ByteArray) -> Unit)
+    fun readBytesFromPath(path: String): ByteArray?
 }

@@ -9,8 +9,13 @@ import com.vahitkeskin.agetrace.domain.model.PixelBuffer
 actual object PlatformImageBridge {
 
     actual fun decodeByteArrayToPixelBuffer(bytes: ByteArray): PixelBuffer? {
+        if (bytes.isEmpty()) return null
         return try {
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+            val options = BitmapFactory.Options().apply {
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+                inMutable = false
+            }
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return null
             val w = bitmap.width
             val h = bitmap.height
             val pixels = IntArray(w * h)
@@ -33,6 +38,18 @@ actual object PlatformImageBridge {
     }
 
     actual fun openFilePicker(onFilePicked: (name: String, bytes: ByteArray) -> Unit) {
-        // Can be registered via ActivityResultContracts in Android UI
+        // Handled via rememberGalleryPickerLauncher in Android UI
+    }
+
+    actual fun readBytesFromPath(path: String): ByteArray? {
+        return try {
+            val file = java.io.File(path)
+            if (file.exists() && file.canRead()) {
+                file.readBytes()
+            } else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 }

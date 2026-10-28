@@ -23,11 +23,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vahitkeskin.agetrace.data.platform.PlatformImageBridge
 import com.vahitkeskin.agetrace.domain.model.DetectionMode
 import com.vahitkeskin.agetrace.domain.model.VisionEngineType
 import com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract
@@ -47,6 +53,7 @@ import com.vahitkeskin.agetrace.presentation.theme.BackgroundDark
 import com.vahitkeskin.agetrace.presentation.theme.CyanNeon
 import com.vahitkeskin.agetrace.presentation.theme.GlassBorder
 import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicCard
+import com.vahitkeskin.agetrace.presentation.theme.GreenSuccess
 import com.vahitkeskin.agetrace.presentation.theme.NeonRed
 import com.vahitkeskin.agetrace.presentation.theme.SurfaceBorder
 import com.vahitkeskin.agetrace.presentation.theme.SurfaceCard
@@ -56,7 +63,6 @@ import com.vahitkeskin.agetrace.presentation.theme.TextSecondary
 import com.vahitkeskin.agetrace.presentation.ui.components.FaceOverlayCanvas
 import com.vahitkeskin.agetrace.presentation.ui.components.FileUploadDropZone
 import com.vahitkeskin.agetrace.presentation.ui.components.MetricsSidePanel
-import com.vahitkeskin.agetrace.presentation.ui.components.ModeSelectorBar
 import com.vahitkeskin.agetrace.presentation.ui.components.rememberGalleryPickerLauncher
 
 @Composable
@@ -66,12 +72,11 @@ fun AgeTraceScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
-    // Multiplatform Native Gallery & Photo Picker launcher (Android Gallery, iOS Photos, Desktop FileDialog)
+    // Multiplatform Native Gallery Launcher (Android PhotoPicker, iOS Photos, Desktop FileDialog)
     val galleryLauncher = rememberGalleryPickerLauncher { name, bytes ->
         viewModel.handleIntent(AgeTraceContract.Intent.OnFileUploaded(name, bytes))
     }
 
-    // Handle single-shot UI effects
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
@@ -79,7 +84,7 @@ fun AgeTraceScreen(
                     galleryLauncher()
                 }
                 is AgeTraceContract.Effect.Notify -> {
-                    // Handled
+                    // Feedback notification
                 }
             }
         }
@@ -93,10 +98,10 @@ fun AgeTraceScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(horizontal = 22.dp, vertical = 18.dp)
         ) {
-            // 1. Top Header Bar
-            HeaderBar(
+            // 1. Executive Top Header (Clean, balanced, non-squeezing)
+            ExecutiveHeader(
                 isAnalyzing = state.isAnalyzing,
                 selectedEngine = state.selectedEngine,
                 onClearClick = { viewModel.handleIntent(AgeTraceContract.Intent.ClearCurrentAnalysis) }
@@ -104,39 +109,28 @@ fun AgeTraceScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 2. Control Row: Mode Selector + Vision Engine Selector
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ModeSelectorBar(
-                    modifier = Modifier.weight(1.3f),
-                    selectedMode = state.selectedMode,
-                    isCameraStreaming = state.isCameraStreaming,
-                    onModeChange = { mode -> viewModel.handleIntent(AgeTraceContract.Intent.ChangeMode(mode)) }
-                )
-
-                EngineSelectorBar(
-                    modifier = Modifier.weight(1.0f),
-                    selectedEngine = state.selectedEngine,
-                    onEngineChange = { engine -> viewModel.handleIntent(AgeTraceContract.Intent.ChangeEngine(engine)) }
-                )
-            }
+            // 2. Master Control Deck (Mode + Engine selectors separated cleanly)
+            ControlDeck(
+                selectedMode = state.selectedMode,
+                isCameraStreaming = state.isCameraStreaming,
+                selectedEngine = state.selectedEngine,
+                onModeChange = { mode -> viewModel.handleIntent(AgeTraceContract.Intent.ChangeMode(mode)) },
+                onEngineChange = { engine -> viewModel.handleIntent(AgeTraceContract.Intent.ChangeEngine(engine)) }
+            )
 
             Spacer(modifier = Modifier.height(14.dp))
 
             // 3. Responsive Workspace: Viewport & Overlay + Live Metrics Panel
             BoxWithConstraints(modifier = Modifier.weight(1f)) {
-                val isWide = maxWidth >= 860.dp
+                val isWide = maxWidth >= 880.dp
 
                 if (isWide) {
-                    // Desktop / Wide Layout
+                    // Desktop / Wide Layout (Two Columns, Zero Overlap)
                     Row(
                         modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(20.dp)
+                        horizontalArrangement = Arrangement.spacedBy(22.dp)
                     ) {
-                        // Left Column: Viewport & Overlays + Upload Controls
+                        // Left Column: Viewport + File Picker Controls
                         Column(
                             modifier = Modifier
                                 .weight(1.4f)
@@ -159,10 +153,22 @@ fun AgeTraceScreen(
                                     onPickFileClick = { galleryLauncher() },
                                     onSelectSample = { sample -> viewModel.handleIntent(AgeTraceContract.Intent.SelectSample(sample)) }
                                 )
+
+                                DirectPathInputRow(
+                                    onPathSubmit = { path ->
+                                        val bytes = PlatformImageBridge.readBytesFromPath(path)
+                                        if (bytes != null) {
+                                            val fileName = path.substringAfterLast('/').substringAfterLast('\\')
+                                            viewModel.handleIntent(
+                                                AgeTraceContract.Intent.OnFileUploaded(fileName, bytes)
+                                            )
+                                        }
+                                    }
+                                )
                             }
                         }
 
-                        // Right Column: Live Metrics & Biometric Telemetry
+                        // Right Column: Live Metrics Dashboard (Scrollable)
                         MetricsSidePanel(
                             modifier = Modifier
                                 .weight(1.0f)
@@ -173,7 +179,7 @@ fun AgeTraceScreen(
                         )
                     }
                 } else {
-                    // Mobile Portrait Layout (Scrollable column with non-overlapping flow)
+                    // Mobile Portrait Layout (Smooth scroll, non-colliding cards)
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -196,6 +202,18 @@ fun AgeTraceScreen(
                                 onPickFileClick = { galleryLauncher() },
                                 onSelectSample = { sample -> viewModel.handleIntent(AgeTraceContract.Intent.SelectSample(sample)) }
                             )
+
+                            DirectPathInputRow(
+                                onPathSubmit = { path ->
+                                    val bytes = PlatformImageBridge.readBytesFromPath(path)
+                                    if (bytes != null) {
+                                        val fileName = path.substringAfterLast('/').substringAfterLast('\\')
+                                        viewModel.handleIntent(
+                                            AgeTraceContract.Intent.OnFileUploaded(fileName, bytes)
+                                        )
+                                    }
+                                }
+                            )
                         }
 
                         MetricsSidePanel(
@@ -211,7 +229,7 @@ fun AgeTraceScreen(
 }
 
 @Composable
-private fun HeaderBar(
+private fun ExecutiveHeader(
     isAnalyzing: Boolean,
     selectedEngine: VisionEngineType,
     onClearClick: () -> Unit
@@ -221,22 +239,21 @@ private fun HeaderBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // App Identity
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(38.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(
-                        Brush.linearGradient(
-                            listOf(NeonRed, Color(0xFF990022))
-                        )
+                        Brush.linearGradient(listOf(NeonRed, Color(0xFF990022)))
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "A",
                     color = Color.White,
-                    fontSize = 20.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Monospace
                 )
@@ -249,77 +266,86 @@ private fun HeaderBar(
                     Text(
                         text = "AgeTrace",
                         color = TextPrimary,
-                        fontSize = 19.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "v1.0",
-                        color = NeonRed,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0x33FF1744))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "PRO",
+                            color = NeonRed,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                 }
                 Text(
-                    text = "Python & Edge AI Biyometrik Yüz & Yaş Analizi",
+                    text = "Biyometrik Yüz Algılama & Yaş Tahmini",
                     color = TextMuted,
                     fontSize = 11.sp
                 )
             }
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Actions & Status (Clean, spacious, never squeezed)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             if (isAnalyzing) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(18.dp),
                     color = NeonRed,
                     strokeWidth = 2.dp
                 )
-                Spacer(modifier = Modifier.width(10.dp))
             }
 
-            // Engine status indicator
+            // Compact Status Chip
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0x2210B981))
-                    .border(1.dp, Color(0x6610B981), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 9.dp, vertical = 5.dp)
+                    .background(Color(0x1810B981))
+                    .border(1.dp, Color(0x4410B981), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(6.dp)
+                            .size(7.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF10B981))
+                            .background(GreenSuccess)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (selectedEngine == VisionEngineType.PYTHON_CORE) "PYTHON CORE AKTİF" else "EDGE AI AKTİF",
-                        color = Color(0xFF10B981),
-                        fontSize = 10.sp,
+                        text = if (selectedEngine == VisionEngineType.PYTHON_CORE) "PYTHON" else "EDGE AI",
+                        color = GreenSuccess,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
+            // Reset Action
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .background(SurfaceCard)
                     .border(1.dp, GlassBorder, RoundedCornerShape(8.dp))
                     .clickable { onClearClick() }
-                    .padding(horizontal = 11.dp, vertical = 6.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = "Sıfırla",
                     color = TextSecondary,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -328,48 +354,154 @@ private fun HeaderBar(
 }
 
 @Composable
-private fun EngineSelectorBar(
-    modifier: Modifier = Modifier,
+private fun ControlDeck(
+    selectedMode: DetectionMode,
+    isCameraStreaming: Boolean,
     selectedEngine: VisionEngineType,
+    onModeChange: (DetectionMode) -> Unit,
     onEngineChange: (VisionEngineType) -> Unit
 ) {
     Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(SurfaceCard.copy(alpha = 0.85f))
-            .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        VisionEngineType.entries.forEach { engine ->
-            val isSelected = (engine == selectedEngine)
-            val bgColor by animateColorAsState(
-                targetValue = if (isSelected) CyanNeon.copy(alpha = 0.16f) else Color.Transparent,
-                label = "engine_bg"
-            )
-            val borderColor by animateColorAsState(
-                targetValue = if (isSelected) CyanNeon else Color.Transparent,
-                label = "engine_border"
-            )
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(bgColor)
-                    .border(1.dp, borderColor, RoundedCornerShape(10.dp))
-                    .clickable { onEngineChange(engine) }
-                    .padding(vertical = 10.dp, horizontal = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "${engine.icon} ${engine.title.substringBefore(" ")}",
-                    color = if (isSelected) TextPrimary else TextMuted,
-                    fontSize = 12.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    fontFamily = FontFamily.Monospace
+        // Mode Selector Tabs
+        Row(
+            modifier = Modifier
+                .weight(1.2f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SurfaceCard.copy(alpha = 0.90f))
+                .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            DetectionMode.entries.forEach { mode ->
+                val isSelected = (mode == selectedMode)
+                val bgColor by animateColorAsState(
+                    targetValue = if (isSelected) NeonRed.copy(alpha = 0.22f) else Color.Transparent,
+                    label = "mode_bg"
                 )
+                val borderColor by animateColorAsState(
+                    targetValue = if (isSelected) NeonRed else Color.Transparent,
+                    label = "mode_border"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(bgColor)
+                        .border(1.dp, borderColor, RoundedCornerShape(9.dp))
+                        .clickable { onModeChange(mode) }
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (mode == DetectionMode.LIVE_CAMERA && isCameraStreaming) {
+                            Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(NeonRed))
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
+                        Text(
+                            text = if (mode == DetectionMode.IMAGE_UPLOAD) "📷 Fotoğraf Yükle" else "🔴 Canlı Kamera",
+                            color = if (isSelected) TextPrimary else TextMuted,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
             }
+        }
+
+        // Engine Selector Tabs
+        Row(
+            modifier = Modifier
+                .weight(1.0f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SurfaceCard.copy(alpha = 0.90f))
+                .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            VisionEngineType.entries.forEach { engine ->
+                val isSelected = (engine == selectedEngine)
+                val bgColor by animateColorAsState(
+                    targetValue = if (isSelected) CyanNeon.copy(alpha = 0.20f) else Color.Transparent,
+                    label = "eng_bg"
+                )
+                val borderColor by animateColorAsState(
+                    targetValue = if (isSelected) CyanNeon else Color.Transparent,
+                    label = "eng_border"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(bgColor)
+                        .border(1.dp, borderColor, RoundedCornerShape(9.dp))
+                        .clickable { onEngineChange(engine) }
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${engine.icon} ${engine.title.substringBefore(" ")}",
+                        color = if (isSelected) TextPrimary else TextMuted,
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DirectPathInputRow(
+    onPathSubmit: (String) -> Unit
+) {
+    var pathText by remember { mutableStateOf("") }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceCard.copy(alpha = 0.85f))
+            .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextField(
+            value = pathText,
+            onValueChange = { pathText = it },
+            placeholder = { Text("Veya doğrudan görsel dosya yolunu yapıştırın (/Users/.../foto.jpg)", color = TextMuted, fontSize = 11.sp) },
+            modifier = Modifier.weight(1f),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = Color.Transparent,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary
+            )
+        )
+
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (pathText.isNotBlank()) NeonRed else Color(0x33333333))
+                .clickable(enabled = pathText.isNotBlank()) {
+                    onPathSubmit(pathText.trim().removeSurrounding("\"").removeSurrounding("'"))
+                }
+                .padding(horizontal = 14.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = "Yükle",
+                color = if (pathText.isNotBlank()) Color.White else TextMuted,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -432,14 +564,14 @@ private fun MainViewport(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Fotoğraf Seçimi Bekleniyor",
+                        text = "Fotoğraf Bekleniyor",
                         color = TextPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Cihazınızın galerisinden bir fotoğraf seçin veya canlı kamerayı başlatın",
+                        text = "Fotoğraf seçin, dosya yolunu yapıştırın veya referans portrelerden birine tıklayın",
                         color = TextMuted,
                         fontSize = 12.sp
                     )
