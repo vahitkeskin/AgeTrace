@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -225,53 +226,101 @@ fun FaceOverlayCanvas(
                     )
                 }
 
-                // Dedicated High-Contrast Floating Badge placed directly ABOVE the face box
-                // Constrained strictly to NOT exceed the box width (fwDp)
+                // Dedicated Musixy/VKControl-Style Speech Balloon placed directly ABOVE the face box
+                // Features: Seamless downward pointing pointer arrow, dark slate gradient, teal/indigo border, dynamic scaling
                 val isSelected = (face.id == selectedFace?.id)
-                val themeColor = if (face.classification.isAdult) Color(0xFFEF4444) else Color(0xFF10B981)
 
-                // Width: Strictly matches the face box width fwDp
-                // When badgeWidthDp == fwDp, the badge never exceeds the box bounds!
-                val badgeWidthDp = fwDp
-                val badgeWidthPx = fwPx
-                val badgeXPx = fxPx.coerceIn(0f, (containerWidthPx - fwPx).coerceAtLeast(0f))
+                // Balloon Width: Aligned with face box width, bounded to prevent clipping or excessive size
+                val balloonWidthDp = if (fwDp >= 44.dp) fwDp.coerceAtMost(108.dp) else fwDp.coerceAtLeast(36.dp)
+                val balloonWidthPx = with(density) { balloonWidthDp.toPx() }
 
-                // Layout selection based on box width:
-                // If box is wide enough (>= 88.dp), display single horizontal line "%conf - age Age"
-                // If box is medium or compact (< 88.dp), display 2 lines: "age Age" + "%conf"
-                val isSingleLine = (badgeWidthDp >= 88.dp)
-                val badgeHeightDp = if (isSingleLine) 22.dp else 28.dp
-                val badgeHeightPx = with(density) { badgeHeightDp.toPx() }
+                // Centering balloon above the face box
+                val faceCenterX = fxPx + fwPx / 2f
+                val balloonXPx = (faceCenterX - balloonWidthPx / 2f).coerceIn(
+                    0f,
+                    (containerWidthPx - balloonWidthPx).coerceAtLeast(0f)
+                )
 
-                // Position: Directly above the face box if room permits; otherwise just inside the top
-                val badgeYPx = if (fyPx >= badgeHeightPx + 4f) {
-                    fyPx - badgeHeightPx - 3f
+                // Arrow dimensions & corner radius
+                val cornerRadiusDp = if (balloonWidthDp < 48.dp) 5.dp else 7.dp
+                val cornerRadiusPx = with(density) { cornerRadiusDp.toPx() }
+                val arrowWidthDp = if (balloonWidthDp < 48.dp) 8.dp else 11.dp
+                val arrowWidthPx = with(density) { arrowWidthDp.toPx() }
+                val arrowHeightDp = 5.dp
+                val arrowHeightPx = with(density) { arrowHeightDp.toPx() }
+
+                // Pointer arrow dynamically aims directly at the horizontal center of the face box
+                val arrowXPx = (faceCenterX - balloonXPx).coerceIn(
+                    cornerRadiusPx + arrowWidthPx / 2f,
+                    (balloonWidthPx - cornerRadiusPx - arrowWidthPx / 2f).coerceAtLeast(cornerRadiusPx + arrowWidthPx / 2f)
+                )
+
+                // Layout determination
+                val isSingleLine = (balloonWidthDp >= 84.dp)
+                val balloonHeightDp = if (isSingleLine) 27.dp else 32.dp
+                val balloonHeightPx = with(density) { balloonHeightDp.toPx() }
+
+                // Position: Directly above the face box if space allows; otherwise inside the top edge
+                val hasRoomAbove = (fyPx >= balloonHeightPx + 1f)
+                val isBelow = !hasRoomAbove // If above, arrow is at bottom pointing down (isBelow = false)
+                val balloonYPx = if (hasRoomAbove) {
+                    fyPx - balloonHeightPx + 1f
                 } else {
-                    fyPx + 3f
+                    fyPx
                 }
 
-                // Dynamic, mathematically guaranteed font sizing that NEVER clips within badgeWidthDp
-                val availWDp = (badgeWidthDp - 4.dp).value.coerceAtLeast(10f)
+                val balloonShape = remember(arrowWidthPx, arrowHeightPx, arrowXPx, isBelow, cornerRadiusPx) {
+                    BalloonShape(
+                        arrowWidth = arrowWidthPx,
+                        arrowHeight = arrowHeightPx,
+                        arrowX = arrowXPx,
+                        isBelow = isBelow,
+                        cornerRadius = cornerRadiusPx
+                    )
+                }
+
+                val availWDp = (balloonWidthDp - 6.dp).value.coerceAtLeast(10f)
 
                 Box(
                     modifier = Modifier
-                        .offset { IntOffset(badgeXPx.roundToInt(), badgeYPx.roundToInt()) }
-                        .width(badgeWidthDp)
-                        .height(badgeHeightDp)
+                        .offset { IntOffset(balloonXPx.roundToInt(), balloonYPx.roundToInt()) }
+                        .width(balloonWidthDp)
+                        .height(balloonHeightDp)
                         .shadow(
-                            elevation = if (isSelected) 8.dp else 3.dp,
-                            shape = RoundedCornerShape(5.dp),
-                            spotColor = if (isSelected) themeColor else Color.Black
+                            elevation = if (isSelected) 10.dp else 5.dp,
+                            shape = balloonShape,
+                            spotColor = if (isSelected) Color(0xFF38BDF8) else Color.Black
                         )
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(Color(0xF20F172A))
+                        .background(
+                            brush = Brush.verticalGradient(
+                                listOf(Color(0xFF1E293B), Color(0xFF0F172A))
+                            ),
+                            shape = balloonShape
+                        )
                         .border(
                             width = if (isSelected) 1.5.dp else 1.dp,
-                            color = if (isSelected) Color.White else themeColor.copy(alpha = 0.9f),
-                            shape = RoundedCornerShape(5.dp)
+                            brush = if (isSelected) {
+                                Brush.linearGradient(
+                                    listOf(Color(0xFF38BDF8), Color(0xFF818CF8))
+                                )
+                            } else {
+                                Brush.linearGradient(
+                                    listOf(
+                                        Color(0xFF2DD4BF).copy(alpha = 0.7f),
+                                        Color(0xFF6366F1).copy(alpha = 0.6f)
+                                    )
+                                )
+                            },
+                            shape = balloonShape
                         )
+                        .clip(balloonShape)
                         .clickable { onFaceClick(face) }
-                        .padding(horizontal = 2.dp),
+                        .padding(
+                            start = 3.dp,
+                            end = 3.dp,
+                            top = if (isBelow) arrowHeightDp else 1.dp,
+                            bottom = if (!isBelow) arrowHeightDp else 1.dp
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isSingleLine) {
@@ -287,7 +336,7 @@ fun FaceOverlayCanvas(
                             textAlign = TextAlign.Center
                         )
                     } else {
-                        val line1Text = if (badgeWidthDp < 38.dp) "${face.estimatedAge}" else "${face.estimatedAge} Age"
+                        val line1Text = if (balloonWidthDp < 38.dp) "${face.estimatedAge}" else "${face.estimatedAge} Age"
                         val line2Text = "%${face.confidencePercentage}"
                         val line1FontSize = (availWDp / (line1Text.length * 0.62f)).coerceIn(7.5f, 10.5f).sp
                         val line2FontSize = (availWDp / (line2Text.length * 0.62f)).coerceIn(6.5f, 8.5f).sp
@@ -308,7 +357,7 @@ fun FaceOverlayCanvas(
                             )
                             Text(
                                 text = line2Text,
-                                color = themeColor,
+                                color = Color(0xFF2DD4BF),
                                 fontSize = line2FontSize,
                                 lineHeight = line2FontSize * 1.15f,
                                 fontWeight = FontWeight.SemiBold,
