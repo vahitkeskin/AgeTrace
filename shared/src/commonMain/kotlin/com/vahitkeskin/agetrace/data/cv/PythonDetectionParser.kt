@@ -14,7 +14,8 @@ object PythonDetectionParser {
         val success: Boolean,
         val engine: String,
         val inferenceTimeMs: Long,
-        val faces: List<DetectedFace>
+        val faces: List<DetectedFace>,
+        val rotationApplied: Int = 0
     )
 
     fun parse(jsonStr: String): PythonAnalysisResponse? {
@@ -25,6 +26,7 @@ object PythonDetectionParser {
 
             val inferenceTimeMs = extractLong(jsonStr, "\"inference_time_ms\":") ?: 35L
             val engine = extractString(jsonStr, "\"engine\":") ?: "Python Vision Core"
+            val rotationApplied = extractInt(jsonStr, "\"rotation_applied\":") ?: 0
 
             val facesList = mutableListOf<DetectedFace>()
 
@@ -83,7 +85,8 @@ object PythonDetectionParser {
                 success = true,
                 engine = engine,
                 inferenceTimeMs = inferenceTimeMs,
-                faces = facesList
+                faces = facesList,
+                rotationApplied = rotationApplied
             )
         } catch (e: Exception) {
             e.printStackTrace()

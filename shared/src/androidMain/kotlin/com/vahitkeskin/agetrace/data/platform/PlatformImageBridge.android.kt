@@ -15,7 +15,30 @@ actual object PlatformImageBridge {
                 inPreferredConfig = Bitmap.Config.ARGB_8888
                 inMutable = false
             }
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return null
+            var bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return null
+
+            // Read EXIF Orientation and rotate bitmap so portrait photos are always upright
+            try {
+                val exif = android.media.ExifInterface(java.io.ByteArrayInputStream(bytes))
+                val orientation = exif.getAttributeInt(
+                    android.media.ExifInterface.TAG_ORIENTATION,
+                    android.media.ExifInterface.ORIENTATION_NORMAL
+                )
+                val rotationDegrees = when (orientation) {
+                    android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                    android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                    android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                    else -> 0f
+                }
+                if (rotationDegrees != 0f) {
+                    val matrix = android.graphics.Matrix().apply { postRotate(rotationDegrees) }
+                    val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                    bitmap = rotated
+                }
+            } catch (ex: Exception) {
+                // Ignore EXIF parsing error and proceed with decoded bitmap
+            }
+
             val w = bitmap.width
             val h = bitmap.height
             val pixels = IntArray(w * h)

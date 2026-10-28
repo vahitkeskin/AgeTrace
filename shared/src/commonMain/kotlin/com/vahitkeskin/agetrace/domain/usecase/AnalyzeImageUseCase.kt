@@ -38,11 +38,20 @@ class AnalyzeImageUseCase(
                     val elapsedMs = startMark.elapsedNow().inWholeMilliseconds
                     val primaryFace = parsed.faces.first()
 
+                    val finalBuffer = if (parsed.rotationApplied != 0) {
+                        when (parsed.rotationApplied) {
+                            90 -> buffer.rotate90(clockwise = false)
+                            270 -> buffer.rotate90(clockwise = true)
+                            180 -> buffer.rotate90(true).rotate90(true)
+                            else -> buffer
+                        }
+                    } else buffer
+
                     return FaceAnalysisResult(
                         faces = parsed.faces,
                         metrics = AnalysisMetrics(
                             inferenceTimeMs = elapsedMs,
-                            imageResolution = "${buffer.width} × ${buffer.height}",
+                            imageResolution = "${finalBuffer.width} × ${finalBuffer.height}",
                             facesFoundCount = parsed.faces.size,
                             primaryConfidence = primaryFace.confidenceScore,
                             primaryAge = primaryFace.estimatedAge,
@@ -51,8 +60,9 @@ class AnalyzeImageUseCase(
                             isFaceDetected = true,
                             statusMessage = "${parsed.faces.size} Yüz Tespit Edildi • ${parsed.engine}"
                         ),
-                        imageWidth = buffer.width,
-                        imageHeight = buffer.height
+                        imageWidth = finalBuffer.width,
+                        imageHeight = finalBuffer.height,
+                        rotationApplied = parsed.rotationApplied
                     )
                 }
             }

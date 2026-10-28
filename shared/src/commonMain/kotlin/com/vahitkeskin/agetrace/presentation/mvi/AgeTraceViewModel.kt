@@ -115,6 +115,37 @@ class AgeTraceViewModel(
                 }
             }
 
+            AgeTraceContract.Intent.RotateCurrentImage -> {
+                viewModelScope.launch {
+                    val currentBuffer = _state.value.pixelBuffer ?: return@launch
+                    val rotatedBuffer = currentBuffer.rotate90(clockwise = true)
+                    val rotatedBitmap = PlatformImageBridge.pixelBufferToImageBitmap(rotatedBuffer)
+                    _state.update {
+                        it.copy(
+                            pixelBuffer = rotatedBuffer,
+                            displayBitmap = rotatedBitmap,
+                            isAnalyzing = true
+                        )
+                    }
+                    try {
+                        val analysisResult = analyzeImageUseCase(
+                            buffer = rotatedBuffer,
+                            preferredEngine = _state.value.selectedEngine
+                        )
+                        _state.update {
+                            it.copy(
+                                detectedFaces = analysisResult.faces,
+                                selectedFace = analysisResult.faces.firstOrNull(),
+                                metrics = analysisResult.metrics,
+                                isAnalyzing = false
+                            )
+                        }
+                    } catch (e: Exception) {
+                        _state.update { it.copy(isAnalyzing = false) }
+                    }
+                }
+            }
+
             AgeTraceContract.Intent.ClearCurrentAnalysis -> {
                 stopCameraStream()
                 _state.update {
@@ -157,11 +188,24 @@ class AgeTraceViewModel(
                     preferredEngine = _state.value.selectedEngine
                 )
 
+                val finalBuffer = if (analysisResult.rotationApplied != 0) {
+                    when (analysisResult.rotationApplied) {
+                        90 -> buffer.rotate90(clockwise = false)
+                        270 -> buffer.rotate90(clockwise = true)
+                        180 -> buffer.rotate90(true).rotate90(true)
+                        else -> buffer
+                    }
+                } else buffer
+
+                val finalBitmap = if (finalBuffer !== buffer) {
+                    PlatformImageBridge.pixelBufferToImageBitmap(finalBuffer)
+                } else imageBitmap
+
                 _state.update {
                     it.copy(
                         currentImageSource = source,
-                        pixelBuffer = buffer,
-                        displayBitmap = imageBitmap,
+                        pixelBuffer = finalBuffer,
+                        displayBitmap = finalBitmap,
                         detectedFaces = analysisResult.faces,
                         selectedFace = analysisResult.faces.firstOrNull(),
                         metrics = analysisResult.metrics,

@@ -507,6 +507,36 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
     }
 
 
+def check_face_orientation(faces) -> int:
+    """
+    Checks the eye orientation of detected faces (inspired by DeepFace & InsightFace).
+    Returns suggested counter-clockwise rotation in degrees (0, 90, 180, 270) to make faces upright.
+    """
+    if not faces:
+        return 0
+    angles = []
+    for f in faces:
+        if hasattr(f, "kps") and f.kps is not None and len(f.kps) >= 2:
+            lx, ly = float(f.kps[0][0]), float(f.kps[0][1])
+            rx, ry = float(f.kps[1][0]), float(f.kps[1][1])
+            dx = rx - lx
+            dy = ry - ly
+            deg = math.degrees(math.atan2(dy, dx))
+            angles.append(deg)
+    if not angles:
+        return 0
+    avg_deg = sum(angles) / len(angles)
+    if -35.0 <= avg_deg <= 35.0:
+        return 0
+    if 45.0 <= avg_deg <= 135.0:
+        return 90
+    if -135.0 <= avg_deg <= -45.0:
+        return 270
+    if abs(avg_deg) > 135.0:
+        return 180
+    return 0
+
+
 def analyze_image(image_bytes: bytes) -> Dict[str, Any]:
     """Complete analysis pipeline on image bytes powered by deepinsight/insightface with OpenCV fallback."""
     start_t = time.time()
@@ -518,12 +548,22 @@ def analyze_image(image_bytes: bytes) -> Dict[str, Any]:
         
     results = []
     engine_name = "Edge AI Vision Core (PIL)"
+    rotation_applied = 0
 
     # 1. Primary: deepinsight/insightface Deep Learning Engine
     if INSIGHTFACE_APP is not None and HAS_OPENCV:
         try:
             cv_img = cv2.cvtColor(np.array(img.convert("RGB")), cv2.COLOR_RGB2BGR)
             insight_faces = INSIGHTFACE_APP.get(cv_img)
+
+            # Automatic face angle evaluation (DeepFace / InsightFace pattern)
+            needed_rot = check_face_orientation(insight_faces)
+            if needed_rot != 0:
+                img = img.rotate(needed_rot, expand=True)
+                cv_img = cv2.cvtColor(np.array(img.convert("RGB")), cv2.COLOR_RGB2BGR)
+                insight_faces = INSIGHTFACE_APP.get(cv_img)
+                rotation_applied = needed_rot
+
             if insight_faces:
                 # Sort by detection score descending
                 insight_faces = sorted(insight_faces, key=lambda f: float(f.det_score) if f.det_score is not None else 0.0, reverse=True)
@@ -605,6 +645,7 @@ def analyze_image(image_bytes: bytes) -> Dict[str, Any]:
                         "width": img.width,
                         "height": img.height
                     },
+                    "rotation_applied": rotation_applied,
                     "faces_count": len(results),
                     "faces": results
                 }
@@ -642,6 +683,7 @@ def analyze_image(image_bytes: bytes) -> Dict[str, Any]:
             "width": img.width,
             "height": img.height
         },
+        "rotation_applied": rotation_applied,
         "faces_count": len(results),
         "faces": results
     }

@@ -55,6 +55,7 @@ object AgeTraceContract {
         data class SelectFace(val face: DetectedFace) : Intent
         data object ClearCurrentAnalysis : Intent
         data object RerunAnalysis : Intent
+        data object RotateCurrentImage : Intent
     }
 
     sealed interface Effect {

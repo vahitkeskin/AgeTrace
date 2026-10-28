@@ -4,5 +4,6 @@ data class FaceAnalysisResult(
     val faces: List<DetectedFace>,
     val metrics: AnalysisMetrics,
     val imageWidth: Int,
-    val imageHeight: Int
+    val imageHeight: Int,
+    val rotationApplied: Int = 0
 )

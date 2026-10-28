@@ -142,7 +142,8 @@ fun AgeTraceScreen(
                                     .fillMaxWidth()
                                     .weight(1f),
                                 state = state,
-                                onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) }
+                                onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
+                                onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) }
                             )
 
                             if (state.selectedMode == DetectionMode.IMAGE_UPLOAD) {
@@ -191,7 +192,8 @@ fun AgeTraceScreen(
                                 .fillMaxWidth()
                                 .height(360.dp),
                             state = state,
-                            onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) }
+                            onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
+                            onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) }
                         )
 
                         if (state.selectedMode == DetectionMode.IMAGE_UPLOAD) {
@@ -496,7 +498,8 @@ private fun DirectPathInputRow(
 private fun MainViewport(
     modifier: Modifier = Modifier,
     state: AgeTraceContract.State,
-    onFaceClick: (com.vahitkeskin.agetrace.domain.model.DetectedFace) -> Unit
+    onFaceClick: (com.vahitkeskin.agetrace.domain.model.DetectedFace) -> Unit,
+    onRotateClick: () -> Unit
 ) {
     GlassmorphicCard(
         modifier = modifier,
@@ -528,6 +531,24 @@ private fun MainViewport(
                     onFaceClick = onFaceClick,
                     isScanning = state.isCameraStreaming || state.isAnalyzing
                 )
+
+                // Sleek Floating Rotate Button (Top-Right)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(10.dp)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xD90F172A))
+                        .border(1.dp, Color(0x33FFFFFF), CircleShape)
+                        .clickable { onRotateClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "🔄",
+                        fontSize = 15.sp
+                    )
+                }
             }
         } else {
             Box(
