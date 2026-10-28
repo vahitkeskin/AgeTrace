@@ -212,54 +212,53 @@ fun FaceOverlayCanvas(
                     )
                 }
 
-                // Dedicated High-Contrast Floating Badge on the Right Side (Pixel-Synchronized)
-                if (isHighestConfidence) {
-                    val badgeEstimatedWidthPx = with(density) { 132.dp.toPx() }
-                    val badgeEstimatedHeightPx = with(density) { 34.dp.toPx() }
-                    val spacingPx = with(density) { 6.dp.toPx() }
+                // Dedicated High-Contrast Floating Badge for EVERY Detected Face (Pixel-Synchronized)
+                val badgeEstimatedWidthPx = with(density) { 132.dp.toPx() }
+                val badgeEstimatedHeightPx = with(density) { 34.dp.toPx() }
+                val spacingPx = with(density) { 6.dp.toPx() }
+                val isSelected = (face.id == selectedFace?.id)
 
-                    // Place badge immediately adjacent to the right bracket of the face
-                    val preferredBadgeXPx = fxPx + fwPx + spacingPx
-                    val badgeXPx = if (preferredBadgeXPx + badgeEstimatedWidthPx <= containerWidthPx) {
-                        preferredBadgeXPx
-                    } else if (fxPx >= badgeEstimatedWidthPx + spacingPx) {
-                        fxPx - badgeEstimatedWidthPx - spacingPx
-                    } else {
-                        (containerWidthPx - badgeEstimatedWidthPx - spacingPx).coerceAtLeast(0f)
-                    }
+                // Place badge immediately adjacent to the right bracket of the face
+                val preferredBadgeXPx = fxPx + fwPx + spacingPx
+                val badgeXPx = if (preferredBadgeXPx + badgeEstimatedWidthPx <= containerWidthPx) {
+                    preferredBadgeXPx
+                } else if (fxPx >= badgeEstimatedWidthPx + spacingPx) {
+                    fxPx - badgeEstimatedWidthPx - spacingPx
+                } else {
+                    (containerWidthPx - badgeEstimatedWidthPx - spacingPx).coerceAtLeast(0f)
+                }
 
-                    val badgeYPx = (fyPx + fhPx * 0.38f - badgeEstimatedHeightPx / 2f)
-                        .coerceIn(spacingPx, (containerHeightPx - badgeEstimatedHeightPx - spacingPx).coerceAtLeast(0f))
+                val badgeYPx = (fyPx + fhPx * 0.38f - badgeEstimatedHeightPx / 2f)
+                    .coerceIn(spacingPx, (containerHeightPx - badgeEstimatedHeightPx - spacingPx).coerceAtLeast(0f))
 
-                    Box(
-                        modifier = Modifier
-                            .offset { IntOffset(badgeXPx.roundToInt(), badgeYPx.roundToInt()) }
-                            .shadow(
-                                elevation = 8.dp,
-                                shape = RoundedCornerShape(12.dp),
-                                spotColor = Color(0x55000000),
-                                ambientColor = Color(0x33000000)
-                            )
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.White)
-                            .border(
-                                width = 1.dp,
-                                color = Color(0x18000000),
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .clickable { onFaceClick(face) }
-                            .padding(horizontal = 14.dp, vertical = 7.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // Text: "%96 - 25 Age"
-                            Text(
-                                text = "%${face.confidencePercentage} - ${face.estimatedAge} Age",
-                                color = Color(0xFF0F172A),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.2.sp
-                            )
-                        }
+                Box(
+                    modifier = Modifier
+                        .offset { IntOffset(badgeXPx.roundToInt(), badgeYPx.roundToInt()) }
+                        .shadow(
+                            elevation = if (isSelected) 10.dp else 6.dp,
+                            shape = RoundedCornerShape(12.dp),
+                            spotColor = if (isSelected) NeonRed.copy(alpha = 0.4f) else Color(0x55000000),
+                            ambientColor = Color(0x33000000)
+                        )
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White)
+                        .border(
+                            width = if (isSelected) 1.8.dp else 1.dp,
+                            color = if (isSelected) NeonRed else Color(0x18000000),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .clickable { onFaceClick(face) }
+                        .padding(horizontal = 14.dp, vertical = 7.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Text: e.g. "%92 - 33 Age" or "%72 - 19 Age"
+                        Text(
+                            text = "%${face.confidencePercentage} - ${face.estimatedAge} Age",
+                            color = Color(0xFF0F172A),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.2.sp
+                        )
                     }
                 }
             }
