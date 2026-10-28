@@ -1,9 +1,0 @@
-package com.vahitkeskin.agetrace
-
-class Greeting {
-    private val platform = getPlatform()
-
-    fun greet(): String {
-        return sayHello(platform.name)
-    }
-}
