@@ -179,11 +179,18 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
             s_cy = s["y"] + s["h"] / 2.0
             dx = abs(c_cx - s_cx)
             dy = abs(c_cy - s_cy)
+            # 1. Center Point Containment: If either center lies within the other's bounding box
+            c_in_s = (s["x"] <= c_cx <= s["x"] + s["w"]) and (s["y"] <= c_cy <= s["y"] + s["h"])
+            s_in_c = (cand["x"] <= s_cx <= cand["x"] + cand["w"]) and (cand["y"] <= s_cy <= cand["y"] + cand["h"])
+            if c_in_s or s_in_c:
+                overlap = True
+                break
+
             max_w = max(cand["w"], s["w"])
             max_h = max(cand["h"], s["h"])
 
-            # 1. Spatial proximity on the same person's head
-            if dx < max_w * 0.75 and dy < max_h * 0.80:
+            # 2. Spatial proximity on the same person's head
+            if dx < max_w * 0.80 and dy < max_h * 0.85:
                 overlap = True
                 break
 
@@ -200,7 +207,7 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
                 min_area = min(area_c, area_s)
                 io_min = inter / min_area if min_area > 0 else 0
 
-                if iou > 0.20 or io_min > 0.35:
+                if iou > 0.15 or io_min > 0.20:
                     overlap = True
                     break
         if not overlap:

@@ -323,14 +323,20 @@ class EdgeAiFaceDetector {
     }
 
     private fun isSameFace(a: BoundingBox, b: BoundingBox): Boolean {
-        // 1. Spatial proximity on the same person's head:
-        // Two boxes whose horizontal and vertical centers align within the span of a single head belong to the same person
+        // 1. Center Point Containment: If either candidate's center lies inside the other box, they belong to the same face
+        val aContainsBCenter = (b.centerX in a.left..a.right) && (b.centerY in a.top..a.bottom)
+        val bContainsACenter = (a.centerX in b.left..b.right) && (a.centerY in b.top..b.bottom)
+        if (aContainsBCenter || bContainsACenter) {
+            return true
+        }
+
+        // 2. Spatial proximity on the same person's head:
         val dx = abs(a.centerX - b.centerX)
         val dy = abs(a.centerY - b.centerY)
         val maxW = max(a.normalizedWidth, b.normalizedWidth)
         val maxH = max(a.normalizedHeight, b.normalizedHeight)
 
-        if (dx < maxW * 0.75f && dy < maxH * 0.80f) {
+        if (dx < maxW * 0.80f && dy < maxH * 0.85f) {
             return true
         }
 
@@ -352,11 +358,11 @@ class EdgeAiFaceDetector {
 
         // Standard IoU
         val iou = if (unionArea > 0f) interArea / unionArea else 0f
-        if (iou > 0.20f) return true
+        if (iou > 0.15f) return true
 
-        // IoMin (Containment)
+        // IoMin (Containment - if smaller box is 20% or more inside larger box)
         val ioMin = if (minArea > 0f) interArea / minArea else 0f
-        if (ioMin > 0.35f) return true
+        if (ioMin > 0.20f) return true
 
         return false
     }
