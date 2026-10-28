@@ -1,7 +1,7 @@
 package com.vahitkeskin.agetrace.di
 
+import com.vahitkeskin.agetrace.data.platform.createPlatformFaceDetector
 import com.vahitkeskin.agetrace.data.repository.AgeEstimatorEngineImpl
-import com.vahitkeskin.agetrace.data.repository.FaceDetectorEngineImpl
 import com.vahitkeskin.agetrace.data.repository.ImageProcessorRepositoryImpl
 import com.vahitkeskin.agetrace.domain.repository.AgeEstimatorEngine
 import com.vahitkeskin.agetrace.domain.repository.FaceDetectorEngine
@@ -16,7 +16,7 @@ import com.vahitkeskin.agetrace.domain.usecase.GetSampleFacesUseCase
 object ServiceLocator {
 
     val faceDetectorEngine: FaceDetectorEngine by lazy {
-        FaceDetectorEngineImpl()
+        createPlatformFaceDetector()
     }
 
     val ageEstimatorEngine: AgeEstimatorEngine by lazy {

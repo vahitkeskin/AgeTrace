@@ -246,20 +246,28 @@ class EdgeAiFaceDetector {
         }
 
         val skinDensity = skinCount.toFloat() / totalPixels
-        if (skinDensity < 0.26f || skinDensity > 0.94f) return 0f
+        if (skinDensity < 0.28f || skinDensity > 0.88f) return 0f
 
-        val eyeBandTop = by + (bh * 0.26f).toInt()
-        val eyeBandHeight = (bh * 0.24f).toInt().coerceAtLeast(3)
+        val eyeBandTop = by + (bh * 0.24f).toInt()
+        val eyeBandHeight = (bh * 0.22f).toInt().coerceAtLeast(3)
         val leftEyeRegionX = bx + (bw * 0.16f).toInt()
         val rightEyeRegionX = bx + (bw * 0.54f).toInt()
         val eyeBoxW = (bw * 0.30f).toInt().coerceAtLeast(3)
 
         val leftEyeLum = averageLuminance(buffer, leftEyeRegionX, eyeBandTop, eyeBoxW, eyeBandHeight)
         val rightEyeLum = averageLuminance(buffer, rightEyeRegionX, eyeBandTop, eyeBoxW, eyeBandHeight)
-        val foreheadLum = averageLuminance(buffer, bx + (bw * 0.25f).toInt(), by + (bh * 0.08f).toInt(), (bw * 0.50f).toInt(), (bh * 0.15f).toInt())
+        val foreheadLum = averageLuminance(buffer, bx + (bw * 0.25f).toInt(), by + (bh * 0.08f).toInt(), (bw * 0.50f).toInt(), (bh * 0.14f).toInt())
 
-        val eyeContrast = ((foreheadLum - leftEyeLum) + (foreheadLum - rightEyeLum)) / 2f
-        val eyeScore = (eyeContrast / (foreheadLum.coerceAtLeast(0.1f))).coerceIn(0f, 1f)
+        val leftContrast = (foreheadLum - leftEyeLum).coerceAtLeast(0f)
+        val rightContrast = (foreheadLum - rightEyeLum).coerceAtLeast(0f)
+        val avgEyeContrast = (leftContrast + rightContrast) / 2f
+        val eyeScore = (avgEyeContrast / foreheadLum.coerceAtLeast(0.1f)).coerceIn(0f, 1f)
+
+        // Strict facial structure check: A body, hand, belly, or blanket does not have darker eye sockets
+        if (leftContrast < 0.015f && rightContrast < 0.015f) {
+            return 0f
+        }
+        if (eyeScore < 0.03f) return 0f
 
         var symmetryDiff = 0f
         var symSamples = 0

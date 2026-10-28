@@ -81,20 +81,32 @@ def detect_faces_with_opencv(image: Image.Image) -> List[Dict[str, float]]:
     bgr_arr = cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2BGR)
     gray = cv2.cvtColor(bgr_arr, cv2.COLOR_BGR2GRAY)
     
-    # Histogram equalization balances low light, backlighting, and uneven shadows
-    gray_eq = cv2.equalizeHist(gray)
-    
     min_face_dim = max(28, int(min(proc_img.size) * 0.07))
     min_size = (min_face_dim, min_face_dim)
     
     raw_candidates = []
     
-    # 1. Frontal Face Cascade (Primary)
-    if CV_FRONTAL:
-        boxes1 = CV_FRONTAL.detectMultiScale(
-            gray_eq, scaleFactor=1.07, minNeighbors=3, minSize=min_size
+    # Run on raw grayscale first (preserves natural contrast without boosting blanket textures)
+    # 1. Frontal Alt2 Cascade (Optimal for babies, toddlers, smiling, angled heads)
+    if CV_ALT2:
+        boxes_alt2 = CV_ALT2.detectMultiScale(
+            gray, scaleFactor=1.08, minNeighbors=3, minSize=min_size
         )
-        for (x, y, bw, bh) in boxes1:
+        for (x, y, bw, bh) in boxes_alt2:
+            raw_candidates.append({
+                "x": x / scale,
+                "y": y / scale,
+                "w": bw / scale,
+                "h": bh / scale,
+                "confidence": 0.96
+            })
+            
+    # 2. Frontal Face Cascade (Primary standard)
+    if CV_FRONTAL:
+        boxes_front = CV_FRONTAL.detectMultiScale(
+            gray, scaleFactor=1.08, minNeighbors=3, minSize=min_size
+        )
+        for (x, y, bw, bh) in boxes_front:
             raw_candidates.append({
                 "x": x / scale,
                 "y": y / scale,
@@ -103,49 +115,45 @@ def detect_faces_with_opencv(image: Image.Image) -> List[Dict[str, float]]:
                 "confidence": 0.94
             })
             
-    # 2. Frontal Alt2 Cascade (Smiling, angled, children, tilted heads)
-    if CV_ALT2:
-        boxes2 = CV_ALT2.detectMultiScale(
-            gray_eq, scaleFactor=1.07, minNeighbors=3, minSize=min_size
-        )
-        for (x, y, bw, bh) in boxes2:
-            raw_candidates.append({
-                "x": x / scale,
-                "y": y / scale,
-                "w": bw / scale,
-                "h": bh / scale,
-                "confidence": 0.92
-            })
-            
     # 3. Profile Face Cascade (Turned / tilted / lying heads)
     if CV_PROFILE:
-        boxes3 = CV_PROFILE.detectMultiScale(
-            gray_eq, scaleFactor=1.09, minNeighbors=3, minSize=min_size
+        boxes_prof = CV_PROFILE.detectMultiScale(
+            gray, scaleFactor=1.09, minNeighbors=3, minSize=min_size
         )
-        for (x, y, bw, bh) in boxes3:
+        for (x, y, bw, bh) in boxes_prof:
             raw_candidates.append({
                 "x": x / scale,
                 "y": y / scale,
                 "w": bw / scale,
                 "h": bh / scale,
-                "confidence": 0.88
+                "confidence": 0.90
             })
             
         # Flip image to detect opposite profile
-        gray_flipped = cv2.flip(gray_eq, 1)
+        gray_flipped = cv2.flip(gray, 1)
         fw = proc_img.width
-        boxes4 = CV_PROFILE.detectMultiScale(
+        boxes_prof_flip = CV_PROFILE.detectMultiScale(
             gray_flipped, scaleFactor=1.09, minNeighbors=3, minSize=min_size
         )
-        for (x, y, bw, bh) in boxes4:
+        for (x, y, bw, bh) in boxes_prof_flip:
             raw_candidates.append({
                 "x": (fw - (x + bw)) / scale,
                 "y": y / scale,
                 "w": bw / scale,
                 "h": bh / scale,
-                "confidence": 0.88
+                "confidence": 0.90
             })
-            
+
+    # If raw grayscale found 0, fallback to equalized grayscale for dark/underexposed photos
+    if not raw_candidates:
+        gray_eq = cv2.equalizeHist(gray)
+        if CV_ALT2:
+            for (x, y, bw, bh) in CV_ALT2.detectMultiScale(gray_eq, scaleFactor=1.08, minNeighbors=3, minSize=min_size):
+                raw_candidates.append({"x": x / scale, "y": y / scale, "w": bw / scale, "h": bh / scale, "confidence": 0.92})
+        if CV_FRONTAL:
+            for (x, y, bw, bh) in CV_FRONTAL.detectMultiScale(gray_eq, scaleFactor=1.08, minNeighbors=3, minSize=min_size):
+                raw_candidates.append({"x": x / scale, "y": y / scale, "w": bw / scale, "h": bh / scale, "confidence": 0.90})
+
     # Normalize coordinates and expand slightly to frame the entire head from crown to chin
     normalized = []
     for c in raw_candidates:
@@ -386,27 +394,34 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
     texture_roughness = min(0.95, max(0.03, math.sqrt(max(0.0, variance)) / 35.0))
     
     # 3. Craniofacial Anthropometry (Ratio of forehead to lower face length)
+    # Check eye line across both eye columns (left ~0.32, right ~0.68)
     min_lum = 255
-    eye_y = int(crop_h * 0.40)
-    for y in range(int(crop_h * 0.30), int(crop_h * 0.52)):
-        lum = face_pixels[crop_w // 2, y]
+    eye_y = int(crop_h * 0.38)
+    lx = int(crop_w * 0.32)
+    rx = int(crop_w * 0.68)
+    for y in range(int(crop_h * 0.25), int(crop_h * 0.55)):
+        lum = (face_pixels[lx, y] + face_pixels[rx, y]) / 2.0
         if lum < min_lum:
             min_lum = lum
             eye_y = y
-    craniofacial_ratio = min(1.30, max(0.65, (eye_y / float(crop_h)) / 0.40))
+    craniofacial_ratio = min(1.30, max(0.60, (eye_y / float(crop_h)) / 0.40))
     
     # 4. Calibrated Biological Age Regression
-    if craniofacial_ratio < 0.86 and wrinkle_score < 0.16:
-        # Juvenile / Child morphology (high forehead, low eyes, smooth baby skin)
-        raw_age = 4.0 + (craniofacial_ratio / 0.86) * 9.0 + (wrinkle_score * 16.0)
+    if craniofacial_ratio <= 0.80:
+        # Infant / Baby / Toddler morphology (0 to 3 years old)
+        # Low eyes relative to cranium, chubby cheeks, smooth infant skin
+        raw_age = 1.0 + ((craniofacial_ratio - 0.60) / 0.20) * 1.8
+    elif craniofacial_ratio < 0.88:
+        # Child / Minor morphology (4 to 12 years old)
+        raw_age = 4.0 + ((craniofacial_ratio - 0.80) / 0.08) * 8.0 + (wrinkle_score * 3.0)
     else:
-        # Adult morphology: baseline young adult starts at 21.0
-        base_adult = 21.0 + max(0.0, (craniofacial_ratio - 0.90)) * 10.0
+        # Adult morphology: baseline young adult starts at 20.0
+        base_adult = 21.0 + max(0.0, (craniofacial_ratio - 0.88)) * 10.0
         wrinkle_aging = (wrinkle_score ** 1.15) * 48.0
         texture_aging = (texture_roughness ** 1.10) * 16.0
         raw_age = base_adult + wrinkle_aging + texture_aging
         
-    estimated_age = max(3, min(88, int(round(raw_age))))
+    estimated_age = max(1, min(88, int(round(raw_age))))
     
     if estimated_age < 18:
         classification = "18- Minor"

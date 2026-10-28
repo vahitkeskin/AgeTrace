@@ -65,20 +65,23 @@ class BiometricAgeEstimator {
         val skinTextureRoughness = (cheekVarianceAvg / 1200.0f).coerceIn(0.02f, 0.95f)
 
         // 4. Craniofacial Anthropometry (Ratio of forehead to lower face length)
-        // Locate dark eye valley
-        val eyeBandY = (fh * 0.35f).toInt()
-        val eyeBandH = (fh * 0.20f).toInt().coerceAtLeast(2)
+        // Locate dark eye valley at actual eye columns (left eye ~0.32, right eye ~0.68)
+        val eyeBandY = (fh * 0.26f).toInt()
+        val eyeBandH = (fh * 0.28f).toInt().coerceAtLeast(3)
+        val leftEyeX = (fw * 0.32f).toInt()
+        val rightEyeX = (fw * 0.68f).toInt()
         var minLumY = eyeBandY
         var minLumVal = Float.MAX_VALUE
-        for (y in eyeBandY until (eyeBandY + eyeBandH)) {
-            val lum = faceBuffer.luminance(fw / 2, y)
+
+        for (y in eyeBandY until (eyeBandY + eyeBandH).coerceAtMost(fh)) {
+            val lum = (faceBuffer.luminance(leftEyeX, y) + faceBuffer.luminance(rightEyeX, y)) / 2f
             if (lum < minLumVal) {
                 minLumVal = lum
                 minLumY = y
             }
         }
-        val eyeYRatio = (minLumY.toFloat() / fh).coerceIn(0.28f, 0.52f)
-        val craniofacialRatio = (eyeYRatio / 0.40f).coerceIn(0.65f, 1.35f)
+        val eyeYRatio = (minLumY.toFloat() / fh).coerceIn(0.24f, 0.55f)
+        val craniofacialRatio = (eyeYRatio / 0.40f).coerceIn(0.60f, 1.35f)
 
         // 5. Bilateral Facial Symmetry
         val midX = fw / 2
@@ -101,19 +104,23 @@ class BiometricAgeEstimator {
         }
 
         // 6. Calibrated Biological Age Regression
-        val effectiveAge = if (craniofacialRatio < 0.86f && wrinkleScore < 0.16f) {
-            // Juvenile / Child morphology (large forehead, low eyes, smooth skin)
-            (6.0f + (craniofacialRatio / 0.86f) * 8.0f + (wrinkleScore * 18.0f))
+        val effectiveAge = if (craniofacialRatio <= 0.80f) {
+            // Infant / Baby / Toddler morphology (0 to 3 years old)
+            // Low eyes relative to cranium, chubby cheeks, smooth infant skin
+            1.0f + ((craniofacialRatio - 0.60f) / 0.20f) * 1.8f
+        } else if (craniofacialRatio < 0.88f) {
+            // Child / Minor morphology (4 to 12 years old)
+            4.0f + ((craniofacialRatio - 0.80f) / 0.08f) * 8.0f + (wrinkleScore * 3.0f)
         } else {
-            // Adult morphology: baseline young adult starts at 21.0 - 24.0
-            val baseAdult = 21.0f + ((craniofacialRatio - 0.90f).coerceAtLeast(0f)) * 10.0f
+            // Adult morphology: baseline young adult starts at 20.0 - 24.0
+            val baseAdult = 21.0f + ((craniofacialRatio - 0.88f).coerceAtLeast(0f)) * 10.0f
             val wrinkleCombined = wrinkleScore * 0.60f + periorbitalScore * 0.40f
             val wrinkleAging = (wrinkleCombined * wrinkleCombined.coerceAtLeast(0.1f)) * 52.0f
             val textureAging = skinTextureRoughness * 16.0f
             baseAdult + wrinkleAging + textureAging
         }
 
-        val estimatedAge = effectiveAge.roundToInt().coerceIn(6, 88)
+        val estimatedAge = effectiveAge.roundToInt().coerceIn(1, 88)
 
         // Calibrated Confidence score (typically 94% to 97%, e.g. 96%)
         val confidenceScore = (0.94f + (symmetryScore * 0.03f) - (kotlin.math.abs(wrinkleScore - 0.25f) * 0.02f))
