@@ -34,6 +34,9 @@ actual object PlatformPythonBridge {
                 ?: File("/Users/vahitkeskin/AndroidStudioProjects/AgeTrace/python/age_trace_detector.py")
 
             val candidatePythons = listOf(
+                File(userDir, "python/.venv/bin/python").absolutePath,
+                File(userDir, "../python/.venv/bin/python").absolutePath,
+                "/Users/vahitkeskin/AndroidStudioProjects/AgeTrace/python/.venv/bin/python",
                 "/opt/homebrew/bin/python3",
                 "/usr/local/bin/python3",
                 "/usr/bin/python3",
@@ -42,15 +45,21 @@ actual object PlatformPythonBridge {
             val pythonBin = candidatePythons.find { File(it).canExecute() } ?: "python3"
 
             val process = ProcessBuilder(pythonBin, scriptFile.absolutePath, tempFile.absolutePath)
-                .redirectErrorStream(true)
                 .start()
 
             val output = process.inputStream.bufferedReader().use { it.readText() }
+            val errOutput = process.errorStream.bufferedReader().use { it.readText() }
             val exitCode = process.waitFor()
             tempFile.delete()
 
-            if (exitCode == 0 && output.contains("\"faces\"")) {
-                output
+            if (output.isBlank() || exitCode != 0) {
+                System.err.println("DEBUG PYTHON exitCode=$exitCode, output=$output, err=$errOutput")
+            }
+
+            val jsonStart = output.indexOf('{')
+            val jsonEnd = output.lastIndexOf('}')
+            if (exitCode == 0 && jsonStart != -1 && jsonEnd > jsonStart && output.contains("\"faces\"")) {
+                output.substring(jsonStart, jsonEnd + 1)
             } else {
                 null
             }
