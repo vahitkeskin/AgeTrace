@@ -18,7 +18,7 @@ import time
 from typing import List, Dict, Any, Tuple
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageOps
 except ImportError:
     print(json.dumps({"error": "PIL/Pillow is required. Install via: pip install Pillow"}), file=sys.stderr)
     sys.exit(1)
@@ -511,7 +511,8 @@ def analyze_image(image_bytes: bytes) -> Dict[str, Any]:
     """Complete analysis pipeline on image bytes powered by deepinsight/insightface with OpenCV fallback."""
     start_t = time.time()
     try:
-        img = Image.open(io.BytesIO(image_bytes))
+        raw_img = Image.open(io.BytesIO(image_bytes))
+        img = ImageOps.exif_transpose(raw_img)
     except Exception as e:
         return {"success": False, "error": f"Invalid image format: {str(e)}"}
         
@@ -537,7 +538,12 @@ def analyze_image(image_bytes: bytes) -> Dict[str, Any]:
                     conf_pct = int(round(det_score * 100))
 
                     raw_age = float(f.age) if (hasattr(f, "age") and f.age is not None) else 25.0
-                    estimated_age = max(1, min(95, int(round(raw_age))))
+                    # InsightFace genderage model tends to floor at 5-6 even for infants due to dataset bias.
+                    # Calibrate toddler/minor scale so infants are recognized accurately as 1-3.
+                    if raw_age < 9.0:
+                        estimated_age = max(1, min(95, int(round((raw_age - 3.0) * 0.55 + 1.0))))
+                    else:
+                        estimated_age = max(1, min(95, int(round(raw_age))))
 
                     if estimated_age < 18:
                         classification = "18- Minor"

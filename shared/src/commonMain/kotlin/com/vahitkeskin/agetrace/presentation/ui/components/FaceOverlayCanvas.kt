@@ -10,6 +10,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -231,27 +233,39 @@ fun FaceOverlayCanvas(
                 val badgeYPx = (fyPx + fhPx * 0.38f - badgeEstimatedHeightPx / 2f)
                     .coerceIn(spacingPx, (containerHeightPx - badgeEstimatedHeightPx - spacingPx).coerceAtLeast(0f))
 
+                val themeColor = if (face.classification.isAdult) Color(0xFFEF4444) else Color(0xFF10B981)
+
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(badgeXPx.roundToInt(), badgeYPx.roundToInt()) }
                         .shadow(
                             elevation = if (isSelected) 10.dp else 6.dp,
                             shape = RoundedCornerShape(12.dp),
-                            spotColor = if (isSelected) NeonRed.copy(alpha = 0.4f) else Color(0x55000000),
+                            spotColor = if (isSelected) themeColor.copy(alpha = 0.45f) else Color(0x55000000),
                             ambientColor = Color(0x33000000)
                         )
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color.White)
                         .border(
-                            width = if (isSelected) 1.8.dp else 1.dp,
-                            color = if (isSelected) NeonRed else Color(0x18000000),
+                            width = if (isSelected) 2.dp else 1.2.dp,
+                            color = if (isSelected) themeColor else themeColor.copy(alpha = 0.4f),
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onFaceClick(face) }
                         .padding(horizontal = 14.dp, vertical = 7.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Text: e.g. "%92 - 33 Age" or "%72 - 19 Age"
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Colored indicator dot (Green for minor, Red/Coral for adult)
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(themeColor)
+                        )
+                        // Text: e.g. "%92 - 33 Age" or "%82 - 2 Age"
                         Text(
                             text = "%${face.confidencePercentage} - ${face.estimatedAge} Age",
                             color = Color(0xFF0F172A),
