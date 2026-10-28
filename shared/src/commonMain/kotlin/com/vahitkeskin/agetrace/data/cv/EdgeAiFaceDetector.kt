@@ -49,19 +49,20 @@ class EdgeAiFaceDetector {
         val candidates = mutableListOf<RawFaceCandidate>()
 
         // 2. Multi-scale sliding window search across typical human face scales
-        val scales = floatArrayOf(0.32f, 0.44f, 0.58f, 0.74f)
-        val aspectRatios = floatArrayOf(1.24f, 1.35f, 1.48f)
+        // Supports multi-person group photos with people of varying ages (7 to 70 years old)
+        val scales = floatArrayOf(0.10f, 0.16f, 0.24f, 0.35f, 0.48f, 0.65f)
+        val aspectRatios = floatArrayOf(1.24f, 1.36f)
 
         for (scale in scales) {
             val boxW = (scanWidth * scale).toInt()
-            if (boxW < 24) continue
+            if (boxW < 14) continue
 
             for (aspect in aspectRatios) {
                 val boxH = (boxW * aspect).toInt()
                 if (boxH >= scanHeight) continue
 
-                val stepX = (boxW * 0.20f).toInt().coerceAtLeast(4)
-                val stepY = (boxH * 0.20f).toInt().coerceAtLeast(4)
+                val stepX = (boxW * 0.25f).toInt().coerceAtLeast(3)
+                val stepY = (boxH * 0.25f).toInt().coerceAtLeast(3)
 
                 var y = 0
                 while (y + boxH <= scanHeight) {
@@ -78,7 +79,7 @@ class EdgeAiFaceDetector {
                             bh = boxH
                         )
 
-                        if (score > 0.60f) {
+                        if (score > 0.58f) {
                             // Refine candidate box to frame the full head/face tightly from forehead to chin
                             val refinedBox = refineHeadBoundingBox(
                                 skinMap = skinMap,
@@ -107,28 +108,75 @@ class EdgeAiFaceDetector {
             }
         }
 
-        // 3. Fallback: If no sliding window candidate passed (e.g. low light or extreme close-up),
-        // use skin cluster bounding box calibrated to frame head and face
-        if (candidates.isEmpty() && totalSkinPixels > (scanWidth * scanHeight * 0.05f)) {
-            val clusterW = (skinMaxX - skinMinX).coerceIn((scanWidth * 0.30f).toInt(), (scanWidth * 0.85f).toInt())
-            val clusterH = (skinMaxY - skinMinY).coerceIn((scanHeight * 0.38f).toInt(), (scanHeight * 0.90f).toInt())
-            val clusterX = ((skinMinX + skinMaxX) / 2 - clusterW / 2).coerceIn(0, scanWidth - clusterW)
-            val clusterY = ((skinMinY + skinMaxY) / 2 - clusterH / 2).coerceIn(0, scanHeight - clusterH)
+        // 3. Fallback / Multi-Cluster: If sliding window missed due to unusual lighting
+        if (candidates.isEmpty() && totalSkinPixels > (scanWidth * scanHeight * 0.04f)) {
+            val colDensity = IntArray(scanWidth)
+            for (y in 0 until scanHeight) {
+                val row = y * scanWidth
+                for (x in 0 until scanWidth) {
+                    if (skinMap[row + x]) colDensity[x]++
+                }
+            }
 
-            candidates.add(
-                RawFaceCandidate(
-                    boundingBox = BoundingBox(
-                        normalizedX = clusterX.toFloat() / scanWidth,
-                        normalizedY = clusterY.toFloat() / scanHeight,
-                        normalizedWidth = clusterW.toFloat() / scanWidth,
-                        normalizedHeight = clusterH.toFloat() / scanHeight
-                    ),
-                    confidence = 0.86f,
-                    eyeDistanceRatio = 0.42f,
-                    mouthYRatio = 0.75f,
-                    skinScore = 0.85f
+            // Find peaks separated by valleys (multiple people side by side)
+            val peaks = mutableListOf<Int>()
+            val threshold = (scanHeight * 0.10f).toInt()
+            var inPeak = false
+            var peakStart = 0
+            for (x in 0 until scanWidth) {
+                if (colDensity[x] >= threshold && !inPeak) {
+                    inPeak = true
+                    peakStart = x
+                } else if (colDensity[x] < threshold && inPeak) {
+                    inPeak = false
+                    val peakCenter = (peakStart + x) / 2
+                    peaks.add(peakCenter)
+                }
+            }
+            if (inPeak) peaks.add((peakStart + scanWidth) / 2)
+
+            if (peaks.size > 1) {
+                for (peakX in peaks) {
+                    val bw = (scanWidth * 0.22f).toInt()
+                    val bh = (bw * 1.30f).toInt().coerceAtMost(scanHeight - 10)
+                    val bx = (peakX - bw / 2).coerceIn(0, scanWidth - bw)
+                    val by = (scanHeight * 0.18f).toInt().coerceIn(0, scanHeight - bh)
+                    candidates.add(
+                        RawFaceCandidate(
+                            boundingBox = BoundingBox(
+                                normalizedX = bx.toFloat() / scanWidth,
+                                normalizedY = by.toFloat() / scanHeight,
+                                normalizedWidth = bw.toFloat() / scanWidth,
+                                normalizedHeight = bh.toFloat() / scanHeight
+                            ),
+                            confidence = 0.85f,
+                            eyeDistanceRatio = 0.42f,
+                            mouthYRatio = 0.75f,
+                            skinScore = 0.84f
+                        )
+                    )
+                }
+            } else {
+                val clusterW = (skinMaxX - skinMinX).coerceIn((scanWidth * 0.30f).toInt(), (scanWidth * 0.85f).toInt())
+                val clusterH = (skinMaxY - skinMinY).coerceIn((scanHeight * 0.38f).toInt(), (scanHeight * 0.90f).toInt())
+                val clusterX = ((skinMinX + skinMaxX) / 2 - clusterW / 2).coerceIn(0, scanWidth - clusterW)
+                val clusterY = ((skinMinY + skinMaxY) / 2 - clusterH / 2).coerceIn(0, scanHeight - clusterH)
+
+                candidates.add(
+                    RawFaceCandidate(
+                        boundingBox = BoundingBox(
+                            normalizedX = clusterX.toFloat() / scanWidth,
+                            normalizedY = clusterY.toFloat() / scanHeight,
+                            normalizedWidth = clusterW.toFloat() / scanWidth,
+                            normalizedHeight = clusterH.toFloat() / scanHeight
+                        ),
+                        confidence = 0.86f,
+                        eyeDistanceRatio = 0.42f,
+                        mouthYRatio = 0.75f,
+                        skinScore = 0.85f
+                    )
                 )
-            )
+            }
         } else if (candidates.isEmpty()) {
             // Default center framing
             candidates.add(
@@ -147,7 +195,7 @@ class EdgeAiFaceDetector {
             )
         }
 
-        return nonMaximumSuppression(candidates, iouThreshold = 0.32f)
+        return nonMaximumSuppression(candidates, iouThreshold = 0.28f).take(16)
     }
 
     /**

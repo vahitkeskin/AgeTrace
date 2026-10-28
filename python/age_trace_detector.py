@@ -61,18 +61,19 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
                 if y > max_y: max_y = y
                 
     candidates = []
-    scales = [0.32, 0.45, 0.58, 0.74]
-    aspect_ratios = [1.25, 1.35, 1.48]
+    # Multi-scale sliding window search for group photos (7 to 70 years old)
+    scales = [0.10, 0.16, 0.24, 0.35, 0.48, 0.65]
+    aspect_ratios = [1.25, 1.36]
     
     for scale in scales:
         bw = int(scan_w * scale)
-        if bw < 24: continue
+        if bw < 14: continue
         for aspect in aspect_ratios:
             bh = int(bw * aspect)
             if bh >= scan_h: continue
             
-            step_x = max(6, int(bw * 0.20))
-            step_y = max(6, int(bh * 0.20))
+            step_x = max(3, int(bw * 0.25))
+            step_y = max(3, int(bh * 0.25))
             
             y = 0
             while y + bh <= scan_h:
@@ -81,7 +82,7 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
                     window_skin = sum(skin_map[cy][cx] for cy in range(y, y + bh) for cx in range(x, x + bw))
                     density = window_skin / float(bw * bh)
                     
-                    if 0.30 <= density <= 0.94:
+                    if 0.26 <= density <= 0.94:
                         eye_top = y + int(bh * 0.26)
                         eye_bottom = y + int(bh * 0.50)
                         forehead_top = y + int(bh * 0.08)
@@ -97,8 +98,8 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
                         avg_e_lum = eye_lum / e_count
                         
                         contrast = avg_f_lum - avg_e_lum
-                        if contrast > 4.0:
-                            score = min(0.96, max(0.68, 0.55 + (density * 0.20) + (contrast / 80.0) * 0.25))
+                        if contrast > 3.5:
+                            score = min(0.96, max(0.65, 0.54 + (density * 0.20) + (contrast / 80.0) * 0.25))
                             
                             # Expand slightly to tightly frame head from crown to chin
                             head_y = max(0, int(y - bh * 0.06))
@@ -116,19 +117,47 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
                     x += step_x
                 y += step_y
 
-    # Fallback to skin cluster bounding box
-    if not candidates and skin_count > (scan_w * scan_h * 0.05):
-        bw = max(int(scan_w * 0.35), min(int(scan_w * 0.85), max_x - min_x))
-        bh = max(int(scan_h * 0.45), min(int(scan_h * 0.90), max_y - min_y))
-        bx = max(0, min(scan_w - bw, (min_x + max_x) // 2 - bw // 2))
-        by = max(0, min(scan_h - bh, (min_y + max_y) // 2 - bh // 2))
-        candidates.append({
-            "x": bx / float(scan_w),
-            "y": by / float(scan_h),
-            "w": bw / float(scan_w),
-            "h": bh / float(scan_h),
-            "confidence": 0.86
-        })
+    # Multi-cluster fallback if sliding window missed
+    if not candidates and skin_count > (scan_w * scan_h * 0.04):
+        col_density = [sum(skin_map[cy][cx] for cy in range(scan_h)) for cx in range(scan_w)]
+        threshold = int(scan_h * 0.10)
+        peaks = []
+        in_peak = False
+        p_start = 0
+        for cx in range(scan_w):
+            if col_density[cx] >= threshold and not in_peak:
+                in_peak = True
+                p_start = cx
+            elif col_density[cx] < threshold and in_peak:
+                in_peak = False
+                peaks.append((p_start + cx) // 2)
+        if in_peak: peaks.append((p_start + scan_w) // 2)
+
+        if len(peaks) > 1:
+            for px in peaks:
+                bw = int(scan_w * 0.22)
+                bh = min(scan_h - 10, int(bw * 1.30))
+                bx = max(0, min(scan_w - bw, px - bw // 2))
+                by = max(0, min(scan_h - bh, int(scan_h * 0.18)))
+                candidates.append({
+                    "x": bx / float(scan_w),
+                    "y": by / float(scan_h),
+                    "w": bw / float(scan_w),
+                    "h": bh / float(scan_h),
+                    "confidence": 0.85
+                })
+        else:
+            bw = max(int(scan_w * 0.35), min(int(scan_w * 0.85), max_x - min_x))
+            bh = max(int(scan_h * 0.45), min(int(scan_h * 0.90), max_y - min_y))
+            bx = max(0, min(scan_w - bw, (min_x + max_x) // 2 - bw // 2))
+            by = max(0, min(scan_h - bh, (min_y + max_y) // 2 - bh // 2))
+            candidates.append({
+                "x": bx / float(scan_w),
+                "y": by / float(scan_h),
+                "w": bw / float(scan_w),
+                "h": bh / float(scan_h),
+                "confidence": 0.86
+            })
     elif not candidates:
         candidates.append({
             "x": 0.20,
@@ -150,12 +179,12 @@ def detect_faces_in_image(image: Image.Image) -> List[Dict[str, Any]]:
             ih = max(0.0, min(cand["y"] + cand["h"], s["y"] + s["h"]) - iy)
             inter = iw * ih
             union = (cand["w"] * cand["h"]) + (s["w"] * s["h"]) - inter
-            if union > 0 and (inter / union) > 0.32:
+            if union > 0 and (inter / union) > 0.28:
                 overlap = True
                 break
         if not overlap:
             selected.append(cand)
-            if len(selected) >= 5: break
+            if len(selected) >= 16: break
             
     return selected
 

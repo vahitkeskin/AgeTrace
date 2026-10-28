@@ -111,8 +111,26 @@ fun FaceOverlayCanvas(
                     val fh = box.normalizedHeight * curRenderedH
 
                     val isSelected = (face.id == selectedFace?.id)
-                    val boxColor = NeonRed
+                    val boxColor = if (isSelected) Color(0xFFFF2A4D) else NeonRed
                     val strokeW = if (isSelected) 3.5f else 2.5f
+
+                    // Header Tab attached directly on top of the box (Physical HUD tab)
+                    val tabHeight = 26f
+                    val tabY = if (fy >= tabHeight) fy - tabHeight else fy
+                    val tabWidth = min(fw.coerceAtLeast(115f), 155f)
+
+                    // Fill Header Tab
+                    drawRect(
+                        color = BackgroundDark.copy(alpha = 0.95f),
+                        topLeft = Offset(fx, tabY),
+                        size = Size(tabWidth, tabHeight)
+                    )
+                    drawRect(
+                        color = boxColor,
+                        topLeft = Offset(fx, tabY),
+                        size = Size(tabWidth, tabHeight),
+                        style = Stroke(width = strokeW)
+                    )
 
                     // Red Bounding Box (Main outline)
                     drawRect(
@@ -158,49 +176,71 @@ fun FaceOverlayCanvas(
                 }
             }
 
-            // 2. High-Contrast Floating Badges with Net Yüzdelik Dilim (%87 - 32 Age)
+            // 2. High-Contrast Interactive Badges Written Directly ON TOP of Each Box
+            // Allows distinguishing every individual from child (7 Age) to senior (70 Age) in group photos
+            val density = androidx.compose.ui.platform.LocalDensity.current
             for (face in faces) {
                 val box = face.boundingBox
                 val fx = offsetX + box.normalizedX * renderedW
                 val fy = offsetY + box.normalizedY * renderedH
                 val fw = box.normalizedWidth * renderedW
+                val fh = box.normalizedHeight * renderedH
+                val isSelected = (face.id == selectedFace?.id)
 
-                // Smart positioning: If near top border, place inside box to prevent clipping
-                val badgeY = if (fy < 50f) {
-                    (fy + 8f).roundToInt()
+                // Positioned directly atop the upper edge of the bounding box
+                val badgeHeightPx = 26f
+                val badgeY = if (fy >= badgeHeightPx) {
+                    (fy - badgeHeightPx).roundToInt()
                 } else {
-                    (fy - 44f).roundToInt()
+                    fy.roundToInt()
                 }
 
-                val badgeX = fx.coerceIn(8f, (containerWidth - 180f).coerceAtLeast(8f)).roundToInt()
+                val badgeX = fx.coerceIn(0f, (containerWidth - 120f).coerceAtLeast(0f)).roundToInt()
 
+                // Interactive Face Box Area (Click anywhere on face to select)
+                val fwDp = with(density) { fw.toDp() }
+                val fhDp = with(density) { fh.toDp() }
+                if (fwDp > 10.dp && fhDp > 10.dp) {
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset(fx.roundToInt(), fy.roundToInt()) }
+                            .size(width = fwDp, height = fhDp)
+                            .clickable { onFaceClick(face) }
+                    )
+                }
+
+                // Dedicated Header Badge attached directly on top of the box
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(badgeX, badgeY) }
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(BackgroundDark.copy(alpha = 0.96f))
-                        .border(1.5.dp, NeonRed, RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
+                        .background(BackgroundDark.copy(alpha = 0.95f))
+                        .border(
+                            width = if (isSelected) 2.dp else 1.5.dp,
+                            color = if (isSelected) Color(0xFFFF2A4D) else NeonRed,
+                            shape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp)
+                        )
                         .clickable { onFaceClick(face) }
-                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Pulsing red sensor light
+                        // Sensor LED
                         Box(
                             modifier = Modifier
-                                .size(9.dp)
+                                .size(7.dp)
                                 .clip(CircleShape)
-                                .background(NeonRed)
+                                .background(if (isSelected) Color(0xFFFF3366) else NeonRed)
                         )
 
-                        Spacer(modifier = Modifier.width(7.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
 
-                        // Net Yüzdelik Oranı (Bold & Prominent)
+                        // Net Yüzdelik Dilimi: %87
                         Text(
                             text = "%${face.confidencePercentage}",
-                            color = NeonRed,
-                            fontSize = 14.sp,
+                            color = if (isSelected) Color(0xFFFF3366) else NeonRed,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 0.5.sp
@@ -209,15 +249,15 @@ fun FaceOverlayCanvas(
                         Text(
                             text = " - ",
                             color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
 
-                        // Tahmin Edilen Yaş
+                        // Tahmin Edilen Yaş: 32 Age
                         Text(
                             text = "${face.estimatedAge} Age",
                             color = Color.White,
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.ExtraBold,
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 0.5.sp
@@ -228,3 +268,4 @@ fun FaceOverlayCanvas(
         }
     }
 }
+

@@ -63,8 +63,8 @@ class AgeTraceCleanArchitectureTest {
         assertTrue(candidates.isNotEmpty(), "At least one face candidate must be detected in portrait")
         val primary = candidates.first()
         assertTrue(primary.confidence > 0.60f, "Face detection confidence should be > 60%")
-        assertTrue(primary.boundingBox.normalizedWidth in 0.20f..0.85f)
-        assertTrue(primary.boundingBox.normalizedHeight in 0.25f..0.90f)
+        assertTrue(primary.boundingBox.normalizedWidth in 0.15f..0.85f)
+        assertTrue(primary.boundingBox.normalizedHeight in 0.20f..0.90f)
     }
 
     @Test
@@ -108,6 +108,22 @@ class AgeTraceCleanArchitectureTest {
         val primaryFace = result.faces.first()
         assertTrue(primaryFace.badgeLabel.startsWith("%"))
         assertTrue(primaryFace.badgeLabel.endsWith("Age"))
+    }
+
+    @Test
+    fun testMultiPersonGroupPortraitDetection() = runBlocking {
+        val groupPortrait = SampleFaceFactory.generateGroupPortrait()
+        val analyzeUseCase = AnalyzeImageUseCase(
+            faceDetectorEngine = FaceDetectorEngineImpl(),
+            ageEstimatorEngine = AgeEstimatorEngineImpl()
+        )
+        val result = analyzeUseCase(groupPortrait)
+        assertTrue(result.faces.size >= 2, "Multiple faces must be detected in group portrait")
+        for (face in result.faces) {
+            assertTrue(face.badgeLabel.startsWith("%"))
+            assertTrue(face.badgeLabel.endsWith("Age"))
+            assertTrue(face.confidencePercentage in 60..99)
+        }
     }
 
     @Test
