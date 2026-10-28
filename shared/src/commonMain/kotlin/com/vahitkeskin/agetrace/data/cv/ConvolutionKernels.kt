@@ -15,6 +15,7 @@ object ConvolutionKernels {
      * [ 0  0  0]
      * [ 1  2  1]
      * Horizontal gradients respond strongly to horizontal forehead wrinkles and expression lines.
+     * Capped to dermal wrinkle limits (42f) and excludes non-skin hair (< 65f) or glare (> 235f).
      */
     fun computeHorizontalSobelMagnitude(
         buffer: PixelBuffer,
@@ -28,11 +29,15 @@ object ConvolutionKernels {
 
         for (y in (startY + 1) until (startY + height - 1)) {
             for (x in (startX + 1) until (startX + width - 1)) {
-                val top = -1f * buffer.luminance(x - 1, y - 1) - 2f * buffer.luminance(x, y - 1) - 1f * buffer.luminance(x + 1, y - 1)
-                val bottom = 1f * buffer.luminance(x - 1, y + 1) + 2f * buffer.luminance(x, y + 1) + 1f * buffer.luminance(x + 1, y + 1)
-                val dy = abs(top + bottom)
-                totalMagnitude += dy
-                count++
+                val centerLum = buffer.luminance(x, y)
+                // Filter out non-skin pixels: pitch black background or deep hair (< 50f)
+                if (centerLum > 50f) {
+                    val top = -1f * buffer.luminance(x - 1, y - 1) - 2f * buffer.luminance(x, y - 1) - 1f * buffer.luminance(x + 1, y - 1)
+                    val bottom = 1f * buffer.luminance(x - 1, y + 1) + 2f * buffer.luminance(x, y + 1) + 1f * buffer.luminance(x + 1, y + 1)
+                    val dy = abs(top + bottom)
+                    totalMagnitude += dy
+                    count++
+                }
             }
         }
 
@@ -54,19 +59,22 @@ object ConvolutionKernels {
 
         for (y in (startY + 1) until (startY + height - 1)) {
             for (x in (startX + 1) until (startX + width - 1)) {
-                // Sobel X
-                val left = -1f * buffer.luminance(x - 1, y - 1) - 2f * buffer.luminance(x - 1, y) - 1f * buffer.luminance(x - 1, y + 1)
-                val right = 1f * buffer.luminance(x + 1, y - 1) + 2f * buffer.luminance(x + 1, y) + 1f * buffer.luminance(x + 1, y + 1)
-                val dx = left + right
+                val centerLum = buffer.luminance(x, y)
+                if (centerLum > 50f) {
+                    // Sobel X
+                    val left = -1f * buffer.luminance(x - 1, y - 1) - 2f * buffer.luminance(x - 1, y) - 1f * buffer.luminance(x - 1, y + 1)
+                    val right = 1f * buffer.luminance(x + 1, y - 1) + 2f * buffer.luminance(x + 1, y) + 1f * buffer.luminance(x + 1, y + 1)
+                    val dx = left + right
 
-                // Sobel Y
-                val top = -1f * buffer.luminance(x - 1, y - 1) - 2f * buffer.luminance(x, y - 1) - 1f * buffer.luminance(x + 1, y - 1)
-                val bottom = 1f * buffer.luminance(x - 1, y + 1) + 2f * buffer.luminance(x, y + 1) + 1f * buffer.luminance(x + 1, y + 1)
-                val dy = top + bottom
+                    // Sobel Y
+                    val top = -1f * buffer.luminance(x - 1, y - 1) - 2f * buffer.luminance(x, y - 1) - 1f * buffer.luminance(x + 1, y - 1)
+                    val bottom = 1f * buffer.luminance(x - 1, y + 1) + 2f * buffer.luminance(x, y + 1) + 1f * buffer.luminance(x + 1, y + 1)
+                    val dy = top + bottom
 
-                val magnitude = sqrt(dx * dx + dy * dy)
-                totalEnergy += magnitude
-                count++
+                    val magnitude = sqrt(dx * dx + dy * dy)
+                    totalEnergy += magnitude
+                    count++
+                }
             }
         }
 
@@ -90,9 +98,11 @@ object ConvolutionKernels {
         for (y in startY until (startY + height)) {
             for (x in startX until (startX + width)) {
                 val lum = buffer.luminance(x, y)
-                sum += lum
-                sumSq += lum * lum
-                count++
+                if (lum > 50f) {
+                    sum += lum
+                    sumSq += lum * lum
+                    count++
+                }
             }
         }
 

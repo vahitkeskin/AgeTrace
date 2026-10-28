@@ -373,7 +373,7 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
             eye_y = y
     eye_height_ratio = min(0.56, max(0.28, eye_y / float(crop_h)))
     
-    # 2. Forehead Wrinkle Analysis (Positioned directly above eyes, away from hairline/hair)
+    # 2. Forehead Wrinkle Analysis (Excludes dark hair < 65 and glare > 235, capped at 42.0)
     f_y1 = max(2, eye_y - int(crop_h * 0.18))
     f_y2 = max(f_y1 + 2, eye_y - int(crop_h * 0.05))
     f_x1 = int(crop_w * 0.22)
@@ -383,49 +383,70 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
     w_count = 0
     for y in range(f_y1 + 1, f_y2 - 1):
         for x in range(f_x1, f_x2):
-            dy = abs(face_pixels[x, y + 1] - face_pixels[x, y - 1])
-            wrinkle_diff += dy
-            w_count += 1
+            lum = face_pixels[x, y]
+            if 65 <= lum <= 235:
+                dy = min(42.0, abs(face_pixels[x, y + 1] - face_pixels[x, y - 1]))
+                wrinkle_diff += dy
+                w_count += 1
     avg_wrinkle = (wrinkle_diff / max(1, w_count))
     wrinkle_score = min(0.96, max(0.02, avg_wrinkle / 28.0))
     
-    # 3. Cheek Skin Texture Variance (Positioned directly below eyes & paranasal zone)
+    # 3. Cheek Skin Texture Variance (Mid-cheek dermal zone, excluding hair curls/ears)
     ch_y1 = min(crop_h - 10, eye_y + int(crop_h * 0.12))
-    ch_y2 = min(crop_h - 2, eye_y + int(crop_h * 0.32))
-    ch_x1 = int(crop_w * 0.18)
-    ch_x2 = int(crop_w * 0.45)
+    ch_y2 = min(crop_h - 2, eye_y + int(crop_h * 0.28))
+    ch_x1 = int(crop_w * 0.22)
+    ch_x2 = int(crop_w * 0.42)
     
     sum_lum, sum_sq, t_count = 0.0, 0.0, 0
     for y in range(ch_y1, ch_y2):
         for x in range(ch_x1, ch_x2):
             lum = face_pixels[x, y]
-            sum_lum += lum
-            sum_sq += lum * lum
-            t_count += 1
+            if 65 <= lum <= 235:
+                sum_lum += lum
+                sum_sq += lum * lum
+                t_count += 1
     mean_lum = sum_lum / max(1, t_count)
     variance = (sum_sq / max(1, t_count)) - (mean_lum * mean_lum)
-    texture_roughness = min(0.95, max(0.02, math.sqrt(max(0.0, variance)) / 35.0))
+    texture_roughness = min(0.95, max(0.02, math.sqrt(max(0.0, variance)) / 28.0))
+
+    # 4. Periorbital Crow's Feet Energy (Near lateral canthi of eyes)
+    p_y1 = max(0, eye_y - int(crop_h * 0.05))
+    p_y2 = min(crop_h, eye_y + int(crop_h * 0.12))
+    p_x1_l, p_x2_l = int(crop_w * 0.16), int(crop_w * 0.28)
+    p_x1_r, p_x2_r = int(crop_w * 0.72), int(crop_w * 0.84)
     
-    # 4. Scientifically Grounded Biological Age Regression
-    # Based on Farkas Craniofacial Anthropometry & Dermal Aging Multi-Factor Models
-    # An eye_height_ratio <= 0.40 is an absolute pediatric morphological invariant
-    # representing neurocranium volume dominance in infants and toddlers (0 to 3 years old).
-    if eye_height_ratio <= 0.40:
-        # Infant / Baby / Toddler morphology (1 to 3 years old)
-        # Low eye level relative to cranium, compact lower third, baby morphology
-        raw_age = 1.0 + max(0.0, (eye_height_ratio - 0.28) / 0.12) * 1.5
-    elif eye_height_ratio <= 0.45 and wrinkle_score < 0.40:
-        # Child / Minor morphology (4 to 12 years old)
-        raw_age = 4.0 + max(0.0, (eye_height_ratio - 0.40) / 0.05) * 7.0 + (wrinkle_score * 3.0)
-    elif wrinkle_score < 0.28 and texture_roughness < 0.50:
-        # Young Adult (18 to 26 years old)
-        raw_age = 18.0 + max(0.0, (eye_height_ratio - 0.45) / 0.07) * 6.0 + (texture_roughness * 4.0)
+    p_diff = 0.0
+    p_count = 0
+    for y in range(p_y1 + 1, p_y2 - 1):
+        for x in list(range(p_x1_l, p_x2_l)) + list(range(p_x1_r, p_x2_r)):
+            if 0 <= x < crop_w and 0 <= y < crop_h:
+                lum = face_pixels[x, y]
+                if 65 <= lum <= 235:
+                    dx = abs(face_pixels[x + 1, y] - face_pixels[x - 1, y])
+                    dy = abs(face_pixels[x, y + 1] - face_pixels[x, y - 1])
+                    p_diff += min(42.0, math.sqrt(dx * dx + dy * dy))
+                    p_count += 1
+    avg_peri = p_diff / max(1, p_count)
+    periorbital_score = min(0.95, max(0.04, avg_peri / 22.0))
+    
+    # 5. Continuous Multi-Zone Biological Age Regression
+    biological_aging_index = wrinkle_score * 0.45 + periorbital_score * 0.30 + texture_roughness * 0.25
+    
+    if biological_aging_index < 0.13:
+        # Infant / Toddler (1 - 3 years old): unwrinkled smooth baby skin
+        raw_age = 1.0 + (biological_aging_index / 0.13) * 2.0
+    elif biological_aging_index < 0.21:
+        # Child / Minor (4 - 12 years old): smooth youthful skin, minimal texture
+        raw_age = 4.0 + ((biological_aging_index - 0.13) / 0.08) * 8.0
+    elif biological_aging_index < 0.33:
+        # Young Adult (18 - 26 years old): youthful skin, early micro-texture
+        raw_age = 18.0 + ((biological_aging_index - 0.21) / 0.12) * 8.0
+    elif biological_aging_index < 0.55:
+        # Adult (27 - 49 years old): resting expression lines, mature dermal texture
+        raw_age = 27.0 + ((biological_aging_index - 0.33) / 0.22) * 22.0
     else:
-        # Adult / Mature / Senior morphology (27 to 85+ years old)
-        base_adult = 26.0 + max(0.0, (eye_height_ratio - 0.45)) * 10.0
-        wrinkle_aging = (wrinkle_score ** 1.15) * 36.0
-        texture_aging = (texture_roughness ** 1.10) * 12.0
-        raw_age = base_adult + wrinkle_aging + texture_aging
+        # Mature / Senior (50 - 85 years old): pronounced creases and dermal aging
+        raw_age = 50.0 + min(1.0, max(0.0, (biological_aging_index - 0.55) / 0.40)) * 35.0
         
     estimated_age = max(1, min(88, int(round(raw_age))))
     

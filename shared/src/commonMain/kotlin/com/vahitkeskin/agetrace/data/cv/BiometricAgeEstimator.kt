@@ -53,12 +53,12 @@ class BiometricAgeEstimator {
         // Normalize wrinkle score between 0.0 and 1.0
         val wrinkleScore = (foreheadWrinkleRaw / 48.0f).coerceIn(0.02f, 0.98f)
 
-        // 3. Periorbital (Crow's Feet) & Micro-Edge Energy
-        val leftCrowX = (fw * 0.05f).toInt()
-        val rightCrowX = (fw * 0.75f).toInt()
+        // 3. Periorbital (Crow's Feet) & Micro-Edge Energy (Near lateral canthi of eyes)
+        val leftCrowX = (fw * 0.18f).toInt()
+        val rightCrowX = (fw * 0.68f).toInt()
         val crowY = (minLumY - (fh * 0.05f).toInt()).coerceAtLeast(0)
-        val crowW = (fw * 0.20f).toInt().coerceAtLeast(3)
-        val crowH = (fh * 0.20f).toInt().coerceAtLeast(3)
+        val crowW = (fw * 0.14f).toInt().coerceAtLeast(3)
+        val crowH = (fh * 0.16f).toInt().coerceAtLeast(3)
 
         val leftCrowEnergy = ConvolutionKernels.computeEdgeGradientEnergy(
             faceBuffer, leftCrowX, crowY, crowW, crowH
@@ -67,19 +67,19 @@ class BiometricAgeEstimator {
             faceBuffer, rightCrowX, crowY, crowW, crowH
         )
         val crowEnergyAvg = (leftCrowEnergy + rightCrowEnergy) / 2f
-        val periorbitalScore = (crowEnergyAvg / 55.0f).coerceIn(0.05f, 0.95f)
+        val periorbitalScore = (crowEnergyAvg / 45.0f).coerceIn(0.04f, 0.95f)
 
-        // 4. Cheek Skin Texture Roughness (Positioned directly below eyes and nose)
+        // 4. Cheek Skin Texture Roughness (Positioned directly on mid-cheek dermal zone)
         val cheekY = (minLumY + (fh * 0.12f).toInt()).coerceAtMost(fh - 10)
-        val cheekH = (fh * 0.18f).toInt().coerceAtLeast(3)
-        val leftCheekX = (fw * 0.15f).toInt()
-        val rightCheekX = (fw * 0.65f).toInt()
-        val cheekW = (fw * 0.20f).toInt().coerceAtLeast(3)
+        val cheekH = (fh * 0.16f).toInt().coerceAtLeast(3)
+        val leftCheekX = (fw * 0.24f).toInt()
+        val rightCheekX = (fw * 0.58f).toInt()
+        val cheekW = (fw * 0.18f).toInt().coerceAtLeast(3)
 
         val leftCheekVar = ConvolutionKernels.computeLuminanceVariance(faceBuffer, leftCheekX, cheekY, cheekW, cheekH)
         val rightCheekVar = ConvolutionKernels.computeLuminanceVariance(faceBuffer, rightCheekX, cheekY, cheekW, cheekH)
         val cheekVarianceAvg = (leftCheekVar + rightCheekVar) / 2f
-        val skinTextureRoughness = (cheekVarianceAvg / 1200.0f).coerceIn(0.02f, 0.95f)
+        val skinTextureRoughness = (cheekVarianceAvg / 600.0f).coerceIn(0.02f, 0.95f)
 
         // 5. Bilateral Facial Symmetry
         val midX = fw / 2
@@ -101,28 +101,25 @@ class BiometricAgeEstimator {
             0.85f
         }
 
-        // 6. Scientifically Grounded Biological Age Regression
-        // Based on Farkas Craniofacial Anthropometry & Dermal Aging Multi-Factor Models
-        // An eyeHeightRatio <= 0.40f is an absolute pediatric morphological invariant
-        // representing neurocranium volume dominance in infants and toddlers (0 to 3 years old).
+        // 6. Scientifically Grounded Multi-Zone Biological Age Regression
+        // Based on Farkas Craniofacial Anthropometry & Multi-Zone Dermal Aging Models
         val effectiveAge = when {
-            eyeHeightRatio <= 0.40f -> {
-                // Infant / Toddler (1 - 3 years old)
-                // Low eye level relative to cranium, compact lower third, baby morphology
-                1.0f + ((eyeHeightRatio - 0.28f).coerceAtLeast(0f) / 0.12f) * 1.5f
+            // Infant / Toddler (1 - 3 years old): unwrinkled, ultra-smooth baby skin
+            wrinkleScore < 0.12f && skinTextureRoughness < 0.16f && periorbitalScore < 0.20f -> {
+                1.0f + (wrinkleScore / 0.12f) * 2.0f
             }
-            eyeHeightRatio <= 0.45f && wrinkleScore < 0.40f -> {
-                // Child / Minor (4 - 12 years old)
-                4.0f + ((eyeHeightRatio - 0.40f).coerceAtLeast(0f) / 0.05f) * 7.0f + (wrinkleScore * 3.0f)
+            // Child / Minor (4 - 15 years old): smooth youthful skin without mature creases
+            wrinkleScore < 0.22f && periorbitalScore < 0.28f -> {
+                4.0f + (wrinkleScore / 0.22f) * 11.0f
             }
-            wrinkleScore < 0.28f && skinTextureRoughness < 0.50f -> {
-                // Young Adult (18 - 26 years old)
-                18.0f + ((eyeHeightRatio - 0.45f).coerceAtLeast(0f) / 0.07f) * 6.0f + (skinTextureRoughness * 4.0f)
+            // Young Adult (18 - 26 years old): minimal resting wrinkles, youthful skin
+            wrinkleScore < 0.28f -> {
+                18.0f + ((wrinkleScore - 0.18f).coerceAtLeast(0f) / 0.10f) * 8.0f + (skinTextureRoughness * 4.0f)
             }
+            // Adult / Mature / Senior (27 - 85 years old): expression lines and dermal maturation
             else -> {
-                // Adult / Mature / Senior (27 - 85 years old)
                 val baseAdult = 26.0f + ((eyeHeightRatio - 0.45f).coerceAtLeast(0f)) * 10.0f
-                val wrinkleAging = wrinkleScore * 36.0f + periorbitalScore * 20.0f
+                val wrinkleAging = (wrinkleScore - 0.20f).coerceAtLeast(0f) * 45.0f + periorbitalScore * 18.0f
                 val textureAging = skinTextureRoughness * 12.0f
                 baseAdult + wrinkleAging + textureAging
             }
