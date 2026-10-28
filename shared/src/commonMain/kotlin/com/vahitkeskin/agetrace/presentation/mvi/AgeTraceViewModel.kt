@@ -47,7 +47,6 @@ class AgeTraceViewModel(
                 val samples = getSampleFacesUseCase()
                 _state.update { it.copy(sampleFaces = samples) }
 
-                // Automatically load and analyze a realistic benchmark portrait on launch
                 val defaultSample = samples.find { it.id == "sample_young_adult" } ?: samples.firstOrNull()
                 if (defaultSample != null) {
                     processImageSource(defaultSample, defaultSample.bytes)
@@ -67,6 +66,15 @@ class AgeTraceViewModel(
                 } else {
                     stopCameraStream()
                     _state.update { it.copy(selectedMode = intent.mode) }
+                }
+            }
+
+            is AgeTraceContract.Intent.ChangeEngine -> {
+                _state.update { it.copy(selectedEngine = intent.engine) }
+                val currentBytes = _state.value.currentImageBytes
+                val currentSource = _state.value.currentImageSource
+                if (currentBytes != null && currentSource != null) {
+                    processImageSource(currentSource, currentBytes)
                 }
             }
 
@@ -99,11 +107,20 @@ class AgeTraceViewModel(
                 _state.update { it.copy(selectedFace = intent.face) }
             }
 
+            AgeTraceContract.Intent.RerunAnalysis -> {
+                val currentBytes = _state.value.currentImageBytes
+                val currentSource = _state.value.currentImageSource
+                if (currentBytes != null && currentSource != null) {
+                    processImageSource(currentSource, currentBytes)
+                }
+            }
+
             AgeTraceContract.Intent.ClearCurrentAnalysis -> {
                 stopCameraStream()
                 _state.update {
                     it.copy(
                         currentImageSource = null,
+                        currentImageBytes = null,
                         pixelBuffer = null,
                         displayBitmap = null,
                         detectedFaces = emptyList(),
@@ -120,7 +137,7 @@ class AgeTraceViewModel(
 
     private fun processImageSource(source: ImageSource, bytes: ByteArray) {
         viewModelScope.launch {
-            _state.update { it.copy(isAnalyzing = true, errorMessage = null) }
+            _state.update { it.copy(isAnalyzing = true, errorMessage = null, currentImageBytes = bytes) }
             try {
                 val buffer = imageProcessorRepository.decodeImage(bytes)
                 if (buffer == null) {
@@ -134,7 +151,11 @@ class AgeTraceViewModel(
                 }
 
                 val imageBitmap = PlatformImageBridge.pixelBufferToImageBitmap(buffer)
-                val analysisResult = analyzeImageUseCase(buffer)
+                val analysisResult = analyzeImageUseCase(
+                    buffer = buffer,
+                    rawBytes = bytes,
+                    preferredEngine = _state.value.selectedEngine
+                )
 
                 _state.update {
                     it.copy(
@@ -167,7 +188,10 @@ class AgeTraceViewModel(
                 try {
                     val frameBuffer = imageProcessorRepository.captureOrSimulateCameraFrame(liveFrameCounter)
                     val frameBitmap = PlatformImageBridge.pixelBufferToImageBitmap(frameBuffer)
-                    val analysisResult = analyzeImageUseCase(frameBuffer)
+                    val analysisResult = analyzeImageUseCase(
+                        buffer = frameBuffer,
+                        preferredEngine = _state.value.selectedEngine
+                    )
 
                     _state.update {
                         it.copy(

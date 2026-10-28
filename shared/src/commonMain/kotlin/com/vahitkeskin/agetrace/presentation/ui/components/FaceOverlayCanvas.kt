@@ -36,8 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.domain.model.DetectedFace
 import com.vahitkeskin.agetrace.presentation.theme.BackgroundDark
-import com.vahitkeskin.agetrace.presentation.theme.CyanNeon
-import com.vahitkeskin.agetrace.presentation.theme.GlassBorder
 import com.vahitkeskin.agetrace.presentation.theme.NeonRed
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -146,7 +144,7 @@ fun FaceOverlayCanvas(
 
                     // Bottom-Right corner
                     drawLine(boxColor, Offset(fx + fw, fy + fh), Offset(fx + fw - cornerLen, fy + fh), strokeWidth = bracketWidth)
-                    drawLine(boxColor, Offset(fx + fw, fy + fh), Offset(fx + fw, fy + fh - cornerLen), strokeWidth = bracketWidth)
+                    drawLine(boxColor, Offset(fx + fw, fy + fh), Offset(fx + fw, fy + cornerLen), strokeWidth = bracketWidth)
 
                     // Small center crosshair
                     val cx = fx + fw / 2f
@@ -157,22 +155,28 @@ fun FaceOverlayCanvas(
                 }
             }
 
-            // 2. Interactive Badges Layer directly above the top edge of each face
+            // 2. Interactive Badges Layer directly above the top edge (with smart collision avoidance)
             for (face in faces) {
                 val box = face.boundingBox
                 val fx = offsetX + box.normalizedX * renderedW
                 val fy = offsetY + box.normalizedY * renderedH
                 val fw = box.normalizedWidth * renderedW
 
-                // Position badge immediately above top edge, clamped to stay inside view
-                val badgeX = fx.roundToInt()
-                val badgeY = (fy - 38f).coerceAtLeast(8f).roundToInt()
+                // Non-overlapping smart placement:
+                // If the face is near the very top of the container, render badge right inside the top border
+                val badgeY = if (fy < 45f) {
+                    (fy + 8f).roundToInt()
+                } else {
+                    (fy - 38f).roundToInt()
+                }
+
+                val badgeX = fx.coerceIn(8f, (containerWidth - 150f).coerceAtLeast(8f)).roundToInt()
 
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(badgeX, badgeY) }
                         .clip(RoundedCornerShape(8.dp))
-                        .background(BackgroundDark.copy(alpha = 0.92f))
+                        .background(BackgroundDark.copy(alpha = 0.94f))
                         .border(1.dp, NeonRed, RoundedCornerShape(8.dp))
                         .clickable { onFaceClick(face) }
                         .padding(horizontal = 10.dp, vertical = 5.dp)

@@ -109,4 +109,45 @@ class AgeTraceCleanArchitectureTest {
         assertTrue(primaryFace.badgeLabel.startsWith("%"))
         assertTrue(primaryFace.badgeLabel.endsWith("Age"))
     }
+
+    @Test
+    fun testPythonDetectionParser() {
+        val sampleJson = """
+        {
+          "success": true,
+          "engine": "AgeTrace Python Computer Vision Core (PIL)",
+          "inference_time_ms": 42,
+          "image": { "width": 640, "height": 480 },
+          "faces_count": 1,
+          "faces": [
+            {
+              "id": "py_face_1",
+              "bbox": { "x": 0.25, "y": 0.15, "w": 0.50, "h": 0.65 },
+              "confidence": 0.89,
+              "age": 31,
+              "classification": "18+ Adult",
+              "badge": "%89 - 31 Age",
+              "biometrics": {
+                "craniofacial_ratio": 0.82,
+                "wrinkle_density": 0.26,
+                "skin_texture_variance": 0.19,
+                "symmetry_score": 0.94
+              }
+            }
+          ]
+        }
+        """.trimIndent()
+
+        val parsed = com.vahitkeskin.agetrace.data.cv.PythonDetectionParser.parse(sampleJson)
+        assertNotNull(parsed)
+        assertTrue(parsed.success)
+        assertEquals("AgeTrace Python Computer Vision Core (PIL)", parsed.engine)
+        assertEquals(1, parsed.faces.size)
+
+        val face = parsed.faces.first()
+        assertEquals(31, face.estimatedAge)
+        assertEquals("%89 - 31 Age", face.badgeLabel)
+        assertEquals(AgeClassification.ADULT, face.classification)
+        assertEquals(0.25f, face.boundingBox.normalizedX)
+    }
 }

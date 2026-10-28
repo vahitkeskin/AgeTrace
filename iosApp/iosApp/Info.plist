@@ -4,5 +4,9 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AgeTrace, yüz tespiti ve yaş analizi yapabilmek için fotoğraf galerisine erişim izni gerektirir.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>AgeTrace, canlı kamera ile anlık yüz tespiti ve yaş analizi yapabilmek için kamera erişim izni gerektirir.</string>
 </dict>
 </plist>

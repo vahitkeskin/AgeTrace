@@ -1,5 +1,6 @@
 package com.vahitkeskin.agetrace.presentation.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -38,8 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.vahitkeskin.agetrace.data.platform.PlatformImageBridge
 import com.vahitkeskin.agetrace.domain.model.DetectionMode
+import com.vahitkeskin.agetrace.domain.model.VisionEngineType
 import com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract
 import com.vahitkeskin.agetrace.presentation.mvi.AgeTraceViewModel
 import com.vahitkeskin.agetrace.presentation.theme.BackgroundDark
@@ -56,6 +57,7 @@ import com.vahitkeskin.agetrace.presentation.ui.components.FaceOverlayCanvas
 import com.vahitkeskin.agetrace.presentation.ui.components.FileUploadDropZone
 import com.vahitkeskin.agetrace.presentation.ui.components.MetricsSidePanel
 import com.vahitkeskin.agetrace.presentation.ui.components.ModeSelectorBar
+import com.vahitkeskin.agetrace.presentation.ui.components.rememberGalleryPickerLauncher
 
 @Composable
 fun AgeTraceScreen(
@@ -64,17 +66,20 @@ fun AgeTraceScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
+    // Multiplatform Native Gallery & Photo Picker launcher (Android Gallery, iOS Photos, Desktop FileDialog)
+    val galleryLauncher = rememberGalleryPickerLauncher { name, bytes ->
+        viewModel.handleIntent(AgeTraceContract.Intent.OnFileUploaded(name, bytes))
+    }
+
     // Handle single-shot UI effects
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 AgeTraceContract.Effect.OpenNativeFilePicker -> {
-                    PlatformImageBridge.openFilePicker { name, bytes ->
-                        viewModel.handleIntent(AgeTraceContract.Intent.OnFileUploaded(name, bytes))
-                    }
+                    galleryLauncher()
                 }
                 is AgeTraceContract.Effect.Notify -> {
-                    // Feedback notification
+                    // Handled
                 }
             }
         }
@@ -88,32 +93,45 @@ fun AgeTraceScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             // 1. Top Header Bar
             HeaderBar(
                 isAnalyzing = state.isAnalyzing,
+                selectedEngine = state.selectedEngine,
                 onClearClick = { viewModel.handleIntent(AgeTraceContract.Intent.ClearCurrentAnalysis) }
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // 2. Mode Selector (Görsel Yükle vs Canlı Kamera)
-            ModeSelectorBar(
+            // 2. Control Row: Mode Selector + Vision Engine Selector
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                selectedMode = state.selectedMode,
-                isCameraStreaming = state.isCameraStreaming,
-                onModeChange = { mode -> viewModel.handleIntent(AgeTraceContract.Intent.ChangeMode(mode)) }
-            )
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ModeSelectorBar(
+                    modifier = Modifier.weight(1.3f),
+                    selectedMode = state.selectedMode,
+                    isCameraStreaming = state.isCameraStreaming,
+                    onModeChange = { mode -> viewModel.handleIntent(AgeTraceContract.Intent.ChangeMode(mode)) }
+                )
 
-            Spacer(modifier = Modifier.height(18.dp))
+                EngineSelectorBar(
+                    modifier = Modifier.weight(1.0f),
+                    selectedEngine = state.selectedEngine,
+                    onEngineChange = { engine -> viewModel.handleIntent(AgeTraceContract.Intent.ChangeEngine(engine)) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             // 3. Responsive Workspace: Viewport & Overlay + Live Metrics Panel
             BoxWithConstraints(modifier = Modifier.weight(1f)) {
-                val isWide = maxWidth >= 840.dp
+                val isWide = maxWidth >= 860.dp
 
                 if (isWide) {
-                    // Desktop / Tablet landscape layout
+                    // Desktop / Wide Layout
                     Row(
                         modifier = Modifier.fillMaxSize(),
                         horizontalArrangement = Arrangement.spacedBy(20.dp)
@@ -121,9 +139,9 @@ fun AgeTraceScreen(
                         // Left Column: Viewport & Overlays + Upload Controls
                         Column(
                             modifier = Modifier
-                                .weight(1.5f)
+                                .weight(1.4f)
                                 .fillMaxHeight(),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             MainViewport(
                                 modifier = Modifier
@@ -138,7 +156,7 @@ fun AgeTraceScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     sampleFaces = state.sampleFaces,
                                     currentImageSource = state.currentImageSource,
-                                    onPickFileClick = { viewModel.handleIntent(AgeTraceContract.Intent.TriggerFilePicker) },
+                                    onPickFileClick = { galleryLauncher() },
                                     onSelectSample = { sample -> viewModel.handleIntent(AgeTraceContract.Intent.SelectSample(sample)) }
                                 )
                             }
@@ -155,17 +173,17 @@ fun AgeTraceScreen(
                         )
                     }
                 } else {
-                    // Mobile Portrait Layout (Scrollable column)
+                    // Mobile Portrait Layout (Scrollable column with non-overlapping flow)
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(18.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         MainViewport(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(380.dp),
+                                .height(360.dp),
                             state = state,
                             onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) }
                         )
@@ -175,7 +193,7 @@ fun AgeTraceScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 sampleFaces = state.sampleFaces,
                                 currentImageSource = state.currentImageSource,
-                                onPickFileClick = { viewModel.handleIntent(AgeTraceContract.Intent.TriggerFilePicker) },
+                                onPickFileClick = { galleryLauncher() },
                                 onSelectSample = { sample -> viewModel.handleIntent(AgeTraceContract.Intent.SelectSample(sample)) }
                             )
                         }
@@ -195,6 +213,7 @@ fun AgeTraceScreen(
 @Composable
 private fun HeaderBar(
     isAnalyzing: Boolean,
+    selectedEngine: VisionEngineType,
     onClearClick: () -> Unit
 ) {
     Row(
@@ -203,7 +222,6 @@ private fun HeaderBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Neon Red Logo Accent
             Box(
                 modifier = Modifier
                     .size(36.dp)
@@ -231,7 +249,7 @@ private fun HeaderBar(
                     Text(
                         text = "AgeTrace",
                         color = TextPrimary,
-                        fontSize = 20.sp,
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp
                     )
@@ -245,9 +263,9 @@ private fun HeaderBar(
                     )
                 }
                 Text(
-                    text = "Edge AI Biyometrik Yüz & Yaş Tespit Sistemi",
+                    text = "Python & Edge AI Biyometrik Yüz & Yaş Analizi",
                     color = TextMuted,
-                    fontSize = 12.sp
+                    fontSize = 11.sp
                 )
             }
         }
@@ -255,20 +273,20 @@ private fun HeaderBar(
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (isAnalyzing) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                     color = NeonRed,
                     strokeWidth = 2.dp
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
             }
 
-            // Offline status badge
+            // Engine status indicator
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(0x2210B981))
                     .border(1.dp, Color(0x6610B981), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .padding(horizontal = 9.dp, vertical = 5.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -279,7 +297,7 @@ private fun HeaderBar(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "OFFLINE YEREL MOTOR",
+                        text = if (selectedEngine == VisionEngineType.PYTHON_CORE) "PYTHON CORE AKTİF" else "EDGE AI AKTİF",
                         color = Color(0xFF10B981),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -288,22 +306,68 @@ private fun HeaderBar(
                 }
             }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
-            // Clear button
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .background(SurfaceCard)
                     .border(1.dp, GlassBorder, RoundedCornerShape(8.dp))
                     .clickable { onClearClick() }
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .padding(horizontal = 11.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = "Sıfırla",
                     color = TextSecondary,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EngineSelectorBar(
+    modifier: Modifier = Modifier,
+    selectedEngine: VisionEngineType,
+    onEngineChange: (VisionEngineType) -> Unit
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(SurfaceCard.copy(alpha = 0.85f))
+            .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        VisionEngineType.entries.forEach { engine ->
+            val isSelected = (engine == selectedEngine)
+            val bgColor by animateColorAsState(
+                targetValue = if (isSelected) CyanNeon.copy(alpha = 0.16f) else Color.Transparent,
+                label = "engine_bg"
+            )
+            val borderColor by animateColorAsState(
+                targetValue = if (isSelected) CyanNeon else Color.Transparent,
+                label = "engine_border"
+            )
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(bgColor)
+                    .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                    .clickable { onEngineChange(engine) }
+                    .padding(vertical = 10.dp, horizontal = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${engine.icon} ${engine.title.substringBefore(" ")}",
+                    color = if (isSelected) TextPrimary else TextMuted,
+                    fontSize = 12.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    fontFamily = FontFamily.Monospace
                 )
             }
         }
@@ -330,15 +394,13 @@ private fun MainViewport(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                // The loaded image or camera feed
                 Image(
                     bitmap = displayBitmap,
-                    contentDescription = "Analysis Target",
+                    contentDescription = "Target",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
                 )
 
-                // The Overlay Layer (Red Bounding Box + Badge "%87 - 32 Age")
                 FaceOverlayCanvas(
                     modifier = Modifier.fillMaxSize(),
                     faces = state.detectedFaces,
@@ -350,7 +412,6 @@ private fun MainViewport(
                 )
             }
         } else {
-            // Empty / Awaiting Viewport
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -358,27 +419,27 @@ private fun MainViewport(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         modifier = Modifier
-                            .size(60.dp)
+                            .size(56.dp)
                             .clip(CircleShape)
                             .background(SurfaceCard)
                             .border(1.dp, GlassBorder, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "📷",
-                            fontSize = 26.sp
+                            text = "📸",
+                            fontSize = 24.sp
                         )
                     }
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Görsel veya Kamera Bekleniyor",
+                        text = "Fotoğraf Seçimi Bekleniyor",
                         color = TextPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Fotoğraf yükleyin veya aşağıdaki örnek portrelerden birini seçin",
+                        text = "Cihazınızın galerisinden bir fotoğraf seçin veya canlı kamerayı başlatın",
                         color = TextMuted,
                         fontSize = 12.sp
                     )

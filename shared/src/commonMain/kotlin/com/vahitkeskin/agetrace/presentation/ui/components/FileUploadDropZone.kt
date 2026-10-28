@@ -3,6 +3,7 @@ package com.vahitkeskin.agetrace.presentation.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -26,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.domain.model.ImageSource
+import com.vahitkeskin.agetrace.presentation.theme.CyanNeon
 import com.vahitkeskin.agetrace.presentation.theme.GlassBorder
 import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicCard
 import com.vahitkeskin.agetrace.presentation.theme.NeonRed
@@ -46,72 +49,101 @@ fun FileUploadDropZone(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. File Upload Button
+        // 1. Native Gallery / File System Trigger Card
         GlassmorphicCard(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
                 .clickable { onPickFileClick() },
             cornerRadius = 16.dp,
-            backgroundColor = SurfaceCard.copy(alpha = 0.90f),
-            borderColor = NeonRed.copy(alpha = 0.5f)
+            backgroundColor = SurfaceCard.copy(alpha = 0.92f),
+            borderColor = NeonRed.copy(alpha = 0.55f)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(NeonRed.copy(alpha = 0.20f))
+                            .border(1.dp, NeonRed, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "🖼️",
+                            fontSize = 20.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column {
+                        Text(
+                            text = "Galeriden veya Dosyalardan Seç",
+                            color = TextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "Android Galeri • iOS Fotoğraflar • Masaüstü Dosyaları",
+                            color = TextMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(NeonRed.copy(alpha = 0.20f))
-                        .border(1.dp, NeonRed, CircleShape),
-                    contentAlignment = Alignment.Center
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(NeonRed)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "↑",
-                        color = NeonRed,
-                        fontSize = 20.sp,
+                        text = "Fotoğraf Seç",
+                        color = Color.White,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(modifier = Modifier.width(14.dp))
-                Column {
-                    Text(
-                        text = "Görsel Dosyası Yükle",
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Text(
-                        text = "PNG, JPG, JPEG, WEBP • Yerel Cihazdan Seç",
-                        color = TextMuted,
-                        fontSize = 11.sp
                     )
                 }
             }
         }
 
-        // 2. Sample Benchmarks Bar
+        // 2. Curated Benchmark Gallery with horizontal scrolling for non-overlapping mobile UX
         if (sampleFaces.isNotEmpty()) {
             Column {
-                Text(
-                    text = "BİYOMETRİK PORTRE TEST SETİ (GERÇEK VERİ)",
-                    color = TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 0.8.sp,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "BİYOMETRİK REFERANS SETİ",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 0.8.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                    Text(
+                        text = "5 Farklı Yaş Grubu",
+                        color = CyanNeon,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     sampleFaces.forEach { sample ->
@@ -121,12 +153,12 @@ fun FileUploadDropZone(
 
                         Box(
                             modifier = Modifier
-                                .weight(1f)
+                                .width(120.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(bgColor)
                                 .border(1.dp, borderColor, RoundedCornerShape(12.dp))
                                 .clickable { onSelectSample(sample) }
-                                .padding(vertical = 10.dp, horizontal = 6.dp),
+                                .padding(vertical = 10.dp, horizontal = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -137,7 +169,7 @@ fun FileUploadDropZone(
                                     fontWeight = FontWeight.Bold,
                                     fontFamily = FontFamily.Monospace
                                 )
-                                Spacer(modifier = Modifier.height(2.dp))
+                                Spacer(modifier = Modifier.height(3.dp))
                                 Text(
                                     text = sample.expectedAgeBracket,
                                     color = if (isSelected) NeonRed else TextMuted,
