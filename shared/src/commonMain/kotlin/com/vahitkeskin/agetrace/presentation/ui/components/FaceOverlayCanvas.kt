@@ -102,8 +102,12 @@ fun FaceOverlayCanvas(
                     val bracketColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.95f)
 
                     // 4 Smooth Rounded Corner Focus Brackets
-                    val radius = (min(fw, fh) * 0.16f).coerceIn(16f, 32f)
-                    val armLen = (radius + min(fw, fh) * 0.12f).coerceIn(radius + 8f, min(fw, fh) * 0.32f)
+                    val minDim = min(fw, fh).coerceAtLeast(10f)
+                    val maxRadius = (minDim * 0.28f).coerceAtLeast(4f)
+                    val radius = (minDim * 0.14f).coerceIn(4f, min(24f, maxRadius))
+                    val minArm = radius + 2f
+                    val maxArm = (minDim * 0.45f).coerceAtLeast(minArm + 2f)
+                    val armLen = (radius + minDim * 0.12f).coerceIn(minArm, maxArm)
 
                     val strokeStyle = Stroke(
                         width = strokeW,
@@ -221,17 +225,20 @@ fun FaceOverlayCanvas(
                 val isSelected = (face.id == selectedFace?.id)
 
                 // Place badge immediately adjacent to the right bracket of the face
+                val maxBadgeX = (containerWidthPx - badgeEstimatedWidthPx).coerceAtLeast(0f)
                 val preferredBadgeXPx = fxPx + fwPx + spacingPx
-                val badgeXPx = if (preferredBadgeXPx + badgeEstimatedWidthPx <= containerWidthPx) {
+                val rawBadgeXPx = if (preferredBadgeXPx + badgeEstimatedWidthPx <= containerWidthPx) {
                     preferredBadgeXPx
                 } else if (fxPx >= badgeEstimatedWidthPx + spacingPx) {
                     fxPx - badgeEstimatedWidthPx - spacingPx
                 } else {
-                    (containerWidthPx - badgeEstimatedWidthPx - spacingPx).coerceAtLeast(0f)
+                    maxBadgeX
                 }
+                val badgeXPx = rawBadgeXPx.coerceIn(0f, maxBadgeX)
 
+                val maxBadgeY = (containerHeightPx - badgeEstimatedHeightPx).coerceAtLeast(0f)
                 val badgeYPx = (fyPx + fhPx * 0.38f - badgeEstimatedHeightPx / 2f)
-                    .coerceIn(spacingPx, (containerHeightPx - badgeEstimatedHeightPx - spacingPx).coerceAtLeast(0f))
+                    .coerceIn(0f, maxBadgeY)
 
                 val themeColor = if (face.classification.isAdult) Color(0xFFEF4444) else Color(0xFF10B981)
 

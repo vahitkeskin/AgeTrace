@@ -48,10 +48,12 @@ class AndroidFaceDetectorEngine(
                         val bh = bitmap.height.toFloat()
 
                         // Normalize and frame head nicely
-                        val normX = (rect.left.toFloat() / bw).coerceIn(0f, 1f)
-                        val normY = (rect.top.toFloat() / bh).coerceIn(0f, 1f)
-                        val normW = (rect.width().toFloat() / bw).coerceIn(0.05f, 1f - normX)
-                        val normH = (rect.height().toFloat() / bh).coerceIn(0.05f, 1f - normY)
+                        val normX = (rect.left.toFloat() / bw).coerceIn(0f, 0.98f)
+                        val normY = (rect.top.toFloat() / bh).coerceIn(0f, 0.98f)
+                        val maxW = (1f - normX).coerceAtLeast(0.01f)
+                        val maxH = (1f - normY).coerceAtLeast(0.01f)
+                        val normW = (rect.width().toFloat() / bw).coerceIn(0.01f, maxW)
+                        val normH = (rect.height().toFloat() / bh).coerceIn(0.01f, maxH)
 
                         RawFaceCandidate(
                             boundingBox = BoundingBox(normX, normY, normW, normH),
@@ -88,10 +90,12 @@ class AndroidFaceDetectorEngine(
                             val left = (midPoint.x - faceW / 2f).coerceAtLeast(0f)
                             val top = (midPoint.y - eyeDistance * 1.15f).coerceAtLeast(0f)
 
-                            val normX = (left / evenW).coerceIn(0f, 1f)
-                            val normY = (top / evenH).coerceIn(0f, 1f)
-                            val normW = (faceW / evenW).coerceIn(0.05f, 1f - normX)
-                            val normH = (faceH / evenH).coerceIn(0.05f, 1f - normY)
+                            val normX = (left / evenW).coerceIn(0f, 0.98f)
+                            val normY = (top / evenH).coerceIn(0f, 0.98f)
+                            val maxW = (1f - normX).coerceAtLeast(0.01f)
+                            val maxH = (1f - normY).coerceAtLeast(0.01f)
+                            val normW = (faceW / evenW).coerceIn(0.01f, maxW)
+                            val normH = (faceH / evenH).coerceIn(0.01f, maxH)
 
                             candidates.add(
                                 RawFaceCandidate(
