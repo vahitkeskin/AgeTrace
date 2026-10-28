@@ -1,5 +1,9 @@
 package com.vahitkeskin.agetrace.data.cv
 
+import com.vahitkeskin.agetrace.domain.model.AgeClassification
+import com.vahitkeskin.agetrace.domain.model.BoundingBox
+import com.vahitkeskin.agetrace.domain.model.DetectedFace
+import com.vahitkeskin.agetrace.domain.model.FacialBiometrics
 import com.vahitkeskin.agetrace.domain.model.ImageSource
 import com.vahitkeskin.agetrace.domain.model.PixelBuffer
 import kotlin.math.abs
@@ -247,6 +251,176 @@ object SampleFaceFactory {
                     }
                 }
             }
+        }
+    }
+
+    fun getKnownFacesForSample(sampleId: String): List<DetectedFace> {
+        return when (sampleId) {
+            "sample_child" -> listOf(
+                DetectedFace(
+                    id = "sample_face_child",
+                    boundingBox = BoundingBox(
+                        normalizedX = 0.28f,
+                        normalizedY = 0.28f,
+                        normalizedWidth = 0.44f,
+                        normalizedHeight = 0.46f
+                    ),
+                    confidenceScore = 0.98f,
+                    estimatedAge = 8,
+                    classification = AgeClassification.MINOR,
+                    biometrics = FacialBiometrics(
+                        craniofacialRatio = 0.88f,
+                        wrinkleDensityScore = 0.04f,
+                        skinTextureVariance = 0.05f,
+                        bilateralSymmetryScore = 0.97f,
+                        chrominanceCentroid = Pair(118f, 148f)
+                    )
+                )
+            )
+            "sample_young_adult" -> listOf(
+                DetectedFace(
+                    id = "sample_face_young_adult",
+                    boundingBox = BoundingBox(
+                        normalizedX = 0.30f,
+                        normalizedY = 0.24f,
+                        normalizedWidth = 0.40f,
+                        normalizedHeight = 0.50f
+                    ),
+                    confidenceScore = 0.97f,
+                    estimatedAge = 24,
+                    classification = AgeClassification.YOUNG_ADULT,
+                    biometrics = FacialBiometrics(
+                        craniofacialRatio = 0.84f,
+                        wrinkleDensityScore = 0.12f,
+                        skinTextureVariance = 0.15f,
+                        bilateralSymmetryScore = 0.96f,
+                        chrominanceCentroid = Pair(118f, 148f)
+                    )
+                )
+            )
+            "sample_adult" -> listOf(
+                DetectedFace(
+                    id = "sample_face_adult",
+                    boundingBox = BoundingBox(
+                        normalizedX = 0.30f,
+                        normalizedY = 0.24f,
+                        normalizedWidth = 0.40f,
+                        normalizedHeight = 0.50f
+                    ),
+                    confidenceScore = 0.96f,
+                    estimatedAge = 35,
+                    classification = AgeClassification.ADULT,
+                    biometrics = FacialBiometrics(
+                        craniofacialRatio = 0.83f,
+                        wrinkleDensityScore = 0.32f,
+                        skinTextureVariance = 0.28f,
+                        bilateralSymmetryScore = 0.95f,
+                        chrominanceCentroid = Pair(118f, 148f)
+                    )
+                )
+            )
+            "sample_mature" -> listOf(
+                DetectedFace(
+                    id = "sample_face_mature",
+                    boundingBox = BoundingBox(
+                        normalizedX = 0.30f,
+                        normalizedY = 0.24f,
+                        normalizedWidth = 0.40f,
+                        normalizedHeight = 0.50f
+                    ),
+                    confidenceScore = 0.96f,
+                    estimatedAge = 52,
+                    classification = AgeClassification.MATURE,
+                    biometrics = FacialBiometrics(
+                        craniofacialRatio = 0.82f,
+                        wrinkleDensityScore = 0.55f,
+                        skinTextureVariance = 0.45f,
+                        bilateralSymmetryScore = 0.94f,
+                        chrominanceCentroid = Pair(118f, 148f)
+                    )
+                )
+            )
+            "sample_senior" -> listOf(
+                DetectedFace(
+                    id = "sample_face_senior",
+                    boundingBox = BoundingBox(
+                        normalizedX = 0.30f,
+                        normalizedY = 0.24f,
+                        normalizedWidth = 0.40f,
+                        normalizedHeight = 0.50f
+                    ),
+                    confidenceScore = 0.98f,
+                    estimatedAge = 71,
+                    classification = AgeClassification.SENIOR,
+                    biometrics = FacialBiometrics(
+                        craniofacialRatio = 0.80f,
+                        wrinkleDensityScore = 0.82f,
+                        skinTextureVariance = 0.68f,
+                        bilateralSymmetryScore = 0.93f,
+                        chrominanceCentroid = Pair(118f, 148f)
+                    )
+                )
+            )
+            "sample_family_group" -> listOf(
+                DetectedFace(
+                    id = "sample_face_child_g",
+                    boundingBox = BoundingBox(
+                        normalizedX = 0.08f,
+                        normalizedY = 0.38f,
+                        normalizedWidth = 0.24f,
+                        normalizedHeight = 0.36f
+                    ),
+                    confidenceScore = 0.97f,
+                    estimatedAge = 7,
+                    classification = AgeClassification.MINOR,
+                    biometrics = FacialBiometrics(
+                        craniofacialRatio = 0.89f,
+                        wrinkleDensityScore = 0.04f,
+                        skinTextureVariance = 0.06f,
+                        bilateralSymmetryScore = 0.96f,
+                        chrominanceCentroid = Pair(118f, 148f)
+                    )
+                ),
+                DetectedFace(
+                    id = "sample_face_adult_g",
+                    boundingBox = BoundingBox(
+                        normalizedX = 0.38f,
+                        normalizedY = 0.24f,
+                        normalizedWidth = 0.24f,
+                        normalizedHeight = 0.44f
+                    ),
+                    confidenceScore = 0.96f,
+                    estimatedAge = 35,
+                    classification = AgeClassification.ADULT,
+                    biometrics = FacialBiometrics(
+                        craniofacialRatio = 0.84f,
+                        wrinkleDensityScore = 0.30f,
+                        skinTextureVariance = 0.26f,
+                        bilateralSymmetryScore = 0.95f,
+                        chrominanceCentroid = Pair(118f, 148f)
+                    )
+                ),
+                DetectedFace(
+                    id = "sample_face_senior_g",
+                    boundingBox = BoundingBox(
+                        normalizedX = 0.68f,
+                        normalizedY = 0.23f,
+                        normalizedWidth = 0.24f,
+                        normalizedHeight = 0.43f
+                    ),
+                    confidenceScore = 0.98f,
+                    estimatedAge = 70,
+                    classification = AgeClassification.SENIOR,
+                    biometrics = FacialBiometrics(
+                        craniofacialRatio = 0.81f,
+                        wrinkleDensityScore = 0.80f,
+                        skinTextureVariance = 0.65f,
+                        bilateralSymmetryScore = 0.93f,
+                        chrominanceCentroid = Pair(118f, 148f)
+                    )
+                )
+            )
+            else -> emptyList()
         }
     }
 

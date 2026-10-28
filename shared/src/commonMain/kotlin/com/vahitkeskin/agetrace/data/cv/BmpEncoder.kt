@@ -9,8 +9,13 @@ import com.vahitkeskin.agetrace.domain.model.PixelBuffer
 object BmpEncoder {
 
     fun encode(buffer: PixelBuffer): ByteArray {
-        val width = buffer.width
-        val height = buffer.height
+        val procBuffer = if (buffer.width > 1280 || buffer.height > 1280) {
+            val scale = 1280f / maxOf(buffer.width, buffer.height)
+            buffer.downsample((buffer.width * scale).toInt(), (buffer.height * scale).toInt())
+        } else buffer
+
+        val width = procBuffer.width
+        val height = procBuffer.height
         val rowSize = width * 4
         val pixelDataSize = rowSize * height
         val fileSize = 54 + pixelDataSize

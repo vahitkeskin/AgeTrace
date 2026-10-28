@@ -139,7 +139,7 @@ fun DetectedFaceAvatarsStrip(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .width(96.dp)
+                        .width(120.dp)
                         .shadow(
                             elevation = if (isSelected) 8.dp else 2.dp,
                             shape = RoundedCornerShape(14.dp),
@@ -155,15 +155,15 @@ fun DetectedFaceAvatarsStrip(
                             shape = RoundedCornerShape(14.dp)
                         )
                         .clickable { onFaceClick(face) }
-                        .padding(horizontal = 6.dp, vertical = 8.dp)
+                        .padding(horizontal = 4.dp, vertical = 8.dp)
                 ) {
                     // Head Crop Avatar Frame
                     Box(
                         modifier = Modifier
-                            .size(68.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .size(70.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(Color(0xFF0B1120))
-                            .border(1.dp, if (isSelected) themeColor.copy(alpha = 0.6f) else Color(0xFF1E293B), RoundedCornerShape(10.dp)),
+                            .border(1.dp, if (isSelected) themeColor.copy(alpha = 0.6f) else Color(0xFF1E293B), RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         if (headBitmap != null) {
@@ -187,7 +187,9 @@ fun DetectedFaceAvatarsStrip(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 2.dp)
                     ) {
                         Box(
                             modifier = Modifier
@@ -197,13 +199,12 @@ fun DetectedFaceAvatarsStrip(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = face.badgeLabel, // e.g. "%85 - 32 Age"
+                            text = "%${face.confidencePercentage} - ${face.estimatedAge} Age",
                             color = Color.White,
                             fontSize = 10.5.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis
+                            softWrap = false
                         )
                     }
 

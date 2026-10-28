@@ -118,15 +118,20 @@ class BiometricAgeEstimator {
                 13.0f + ((wrinkleScore - 0.24f).coerceAtLeast(0f) / 0.04f) * 4.0f
             }
             // Young Adult (18 - 29 years old): mature eye ratio, minimal resting wrinkles
-            wrinkleScore < 0.38f -> {
-                18.0f + ((wrinkleScore - 0.28f).coerceAtLeast(0f) / 0.10f) * 11.0f + (skinTextureRoughness * 4.0f)
+            wrinkleScore < 0.40f -> {
+                18.0f + ((wrinkleScore - 0.26f).coerceAtLeast(0f) / 0.14f) * 11.0f + (skinTextureRoughness * 2.0f)
             }
-            // Adult / Mature / Senior (30 - 85 years old): expression lines and dermal maturation
+            // Adult (30 - 45 years old): early expression and periorbital lines
+            wrinkleScore < 0.58f -> {
+                30.0f + ((wrinkleScore - 0.40f) / 0.18f) * 14.0f + (periorbitalScore * 4.0f)
+            }
+            // Mature (46 - 62 years old): noticeable forehead lines and dermal maturation
+            wrinkleScore < 0.78f -> {
+                46.0f + ((wrinkleScore - 0.58f) / 0.20f) * 14.0f + (skinTextureRoughness * 4.0f)
+            }
+            // Senior (63 - 85 years old): prominent deep facial furrows and crow's feet
             else -> {
-                val baseAdult = 30.0f + ((eyeHeightRatio - 0.45f).coerceAtLeast(0f)) * 10.0f
-                val wrinkleAging = (wrinkleScore - 0.35f).coerceAtLeast(0f) * 45.0f + periorbitalScore * 20.0f
-                val textureAging = skinTextureRoughness * 12.0f
-                (baseAdult + wrinkleAging + textureAging).coerceIn(30f, 85f)
+                62.0f + ((wrinkleScore - 0.78f) / 0.22f) * 18.0f + (periorbitalScore * 5.0f)
             }
         }
 

@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,9 +42,11 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.domain.model.DetectedFace
 import com.vahitkeskin.agetrace.presentation.theme.*
@@ -224,72 +227,96 @@ fun FaceOverlayCanvas(
 
                 // Dedicated High-Contrast Floating Badge placed directly ABOVE the face box
                 // Constrained strictly to NOT exceed the box width (fwDp)
-                val badgeHeightDp = 22.dp
-                val badgeHeightPx = with(density) { badgeHeightDp.toPx() }
                 val isSelected = (face.id == selectedFace?.id)
                 val themeColor = if (face.classification.isAdult) Color(0xFFEF4444) else Color(0xFF10B981)
 
-                // Position: Directly above the face box if room permits; otherwise just inside the top
-                val badgeYPx = if (fyPx >= badgeHeightPx + 4f) {
-                    fyPx - badgeHeightPx - 4f
-                } else {
-                    fyPx + 4f
-                }
+                // Width: Strictly matches the face box width fwDp
+                // When badgeWidthDp == fwDp, the badge never exceeds the box bounds!
+                val badgeWidthDp = fwDp
+                val badgeWidthPx = fwPx
                 val badgeXPx = fxPx.coerceIn(0f, (containerWidthPx - fwPx).coerceAtLeast(0f))
 
-                val labelText = if (fwDp < 38.dp) {
-                    "${face.estimatedAge}"
-                } else if (fwDp < 52.dp) {
-                    "%${face.confidencePercentage} • ${face.estimatedAge}"
-                } else if (fwDp < 80.dp) {
-                    "%${face.confidencePercentage} - ${face.estimatedAge}"
+                // Layout selection based on box width:
+                // If box is wide enough (>= 88.dp), display single horizontal line "%conf - age Age"
+                // If box is medium or compact (< 88.dp), display 2 lines: "age Age" + "%conf"
+                val isSingleLine = (badgeWidthDp >= 88.dp)
+                val badgeHeightDp = if (isSingleLine) 22.dp else 28.dp
+                val badgeHeightPx = with(density) { badgeHeightDp.toPx() }
+
+                // Position: Directly above the face box if room permits; otherwise just inside the top
+                val badgeYPx = if (fyPx >= badgeHeightPx + 4f) {
+                    fyPx - badgeHeightPx - 3f
                 } else {
-                    "%${face.confidencePercentage} - ${face.estimatedAge} Age"
+                    fyPx + 3f
                 }
 
-                val fontSize = if (fwDp < 45.dp) 8.sp else if (fwDp < 60.dp) 9.sp else if (fwDp < 80.dp) 10.sp else 11.sp
+                // Dynamic, mathematically guaranteed font sizing that NEVER clips within badgeWidthDp
+                val availWDp = (badgeWidthDp - 4.dp).value.coerceAtLeast(10f)
 
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(badgeXPx.roundToInt(), badgeYPx.roundToInt()) }
-                        .width(fwDp)
+                        .width(badgeWidthDp)
                         .height(badgeHeightDp)
                         .shadow(
                             elevation = if (isSelected) 8.dp else 3.dp,
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(5.dp),
                             spotColor = if (isSelected) themeColor else Color.Black
                         )
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xF00F172A))
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(Color(0xF20F172A))
                         .border(
                             width = if (isSelected) 1.5.dp else 1.dp,
-                            color = if (isSelected) Color.White else themeColor.copy(alpha = 0.85f),
-                            shape = RoundedCornerShape(6.dp)
+                            color = if (isSelected) Color.White else themeColor.copy(alpha = 0.9f),
+                            shape = RoundedCornerShape(5.dp)
                         )
                         .clickable { onFaceClick(face) }
                         .padding(horizontal = 2.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(4.dp)
-                                .clip(CircleShape)
-                                .background(themeColor)
-                        )
-                        Spacer(modifier = Modifier.width(2.5.dp))
+                    if (isSingleLine) {
+                        val singleText = "%${face.confidencePercentage} - ${face.estimatedAge} Age"
+                        val dynFontSize = (availWDp / (singleText.length * 0.58f)).coerceIn(8.5f, 11.5f).sp
                         Text(
-                            text = labelText,
+                            text = singleText,
                             color = Color.White,
-                            fontSize = fontSize,
+                            fontSize = dynFontSize,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             softWrap = false,
-                            overflow = TextOverflow.Ellipsis
+                            textAlign = TextAlign.Center
                         )
+                    } else {
+                        val line1Text = if (badgeWidthDp < 38.dp) "${face.estimatedAge}" else "${face.estimatedAge} Age"
+                        val line2Text = "%${face.confidencePercentage}"
+                        val line1FontSize = (availWDp / (line1Text.length * 0.62f)).coerceIn(7.5f, 10.5f).sp
+                        val line2FontSize = (availWDp / (line2Text.length * 0.62f)).coerceIn(6.5f, 8.5f).sp
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = line1Text,
+                                color = Color.White,
+                                fontSize = line1FontSize,
+                                lineHeight = line1FontSize * 1.15f,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = line2Text,
+                                color = themeColor,
+                                fontSize = line2FontSize,
+                                lineHeight = line2FontSize * 1.15f,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
