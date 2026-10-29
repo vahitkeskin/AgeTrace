@@ -84,9 +84,10 @@ class BiometricAgeEstimator {
 
         // 5. Biological Consistency Check:
         // A senior always exhibits elevated cheek roughness (> 0.35f) and pronounced crow's feet (> 0.35f).
-        // If cheek texture is smooth and periorbital lines are low, forehead texture is hair fringes (kahkül), NOT wrinkles!
-        val wrinkleScore = if (skinTextureRoughness < 0.25f && periorbitalScore < 0.35f) {
-            rawWrinkleScore.coerceAtMost(0.20f)
+        // If periorbital lines are low (< 0.32f) or craniofacial eye ratio indicates youth (< 0.44f),
+        // forehead texture is hair fringes (kahkül), NOT wrinkles!
+        val wrinkleScore = if (periorbitalScore < 0.32f || (eyeHeightRatio < 0.44f && skinTextureRoughness < 0.45f)) {
+            rawWrinkleScore.coerceAtMost(0.19f)
         } else {
             rawWrinkleScore
         }

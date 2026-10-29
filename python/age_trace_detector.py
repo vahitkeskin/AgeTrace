@@ -625,24 +625,26 @@ def calibrate_insightface_age(cv_img, bbox, kps, gender, raw_age: float, face_an
 
     print(f"[Calibrate] raw_age={raw_age:.1f}, angle={face_angle:.1f}deg, gender={gender}, bw={int(w)}, bh={int(h)}, forehead_w={forehead_wrinkle_energy:.1f}, cheek_std={cheek_std:.1f}, nasolabial={nasolabial_energy:.1f}", file=sys.stderr)
 
-    # 0. Farkas Craniofacial Anthropometry (Midface Ratio)
-    midface_ratio = 1.05
+    # 0. Farkas Craniofacial Anthropometry (Midface & Philtrum Ratio)
+    midface_ratio = 1.02
+    philtrum_ratio = 0.48
     if kps is not None and len(kps) >= 5:
         eye_dist = math.hypot(float(kps[1][0] - kps[0][0]), float(kps[1][1] - kps[0][1]))
         eye_cy = float(kps[0][1] + kps[1][1]) / 2.0
         mouth_cy = float(kps[3][1] + kps[4][1]) / 2.0
         midface_h = mouth_cy - eye_cy
         midface_ratio = float(midface_h / max(1.0, eye_dist))
+        philtrum_ratio = float((mouth_cy - float(kps[2][1])) / max(1.0, eye_dist))
 
-    # School Child (Ages 6 - 12): Compact midface ratio, youthful cheeks
-    if midface_ratio <= 1.01 and raw_age <= 38.0 and w < 100:
-        if midface_ratio <= 0.88:
-            calibrated = 4
-        else:
-            norm_r = (midface_ratio - 0.88) / (1.01 - 0.88)
-            calibrated = int(round(6.0 + norm_r * 5.0))
-            calibrated = max(6, min(12, calibrated))
-        print(f"[Calibrate] School Child adjustment: raw_age={raw_age:.1f}, ratio={midface_ratio:.2f} -> {calibrated} Age (Minor)", file=sys.stderr)
+    # School Child (Ages 7 - 11): Compact midface ratio, compact philtrum, youthful cheeks
+    # Scale-invariant: never relies on absolute pixel width 'w'
+    is_adult_woman_morph = (gender == 0 and philtrum_ratio >= 0.52 and midface_ratio >= 1.01 and raw_age >= 24.0)
+    if not is_adult_woman_morph and (philtrum_ratio < 0.50 or midface_ratio <= 1.01) and raw_age <= 38.0:
+        norm_r = (midface_ratio - 0.88) / (1.04 - 0.88)
+        norm_r = max(0.0, min(1.0, norm_r))
+        calibrated = int(round(8.0 + norm_r * 2.0))
+        calibrated = max(7, min(11, calibrated))
+        print(f"[Calibrate] School Child adjustment: raw_age={raw_age:.1f}, ratio={midface_ratio:.2f}, phil={philtrum_ratio:.2f} -> {calibrated} Age (Minor)", file=sys.stderr)
         return calibrated
 
     # 1. Infant / Toddler / Early Child Calibration (1 - 6 Age)
