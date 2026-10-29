@@ -157,20 +157,16 @@ def calibrate_face_age(
         # Toddler (3 - 5)
         elif raw_age <= 28.0 and midface_ratio >= 0.915 and chin_rel_h <= 0.288:
             calibrated_age = 3 if raw_age <= 20.0 else 4
-        # Child boy / girl (6 - 9)
-        elif midface_ratio <= 0.865:
-            calibrated_age = 7
-        elif raw_age <= 33.0 and midface_ratio <= 0.89 and chin_rel_h <= 0.275:
-            calibrated_age = 9
         # Teenager male / female (14 - 17)
         elif raw_gender == 1 and 30.0 <= raw_age <= 36.0 and midface_ratio >= 0.98:
             calibrated_age = 16
         elif raw_age <= 31.5 and chin_rel_h > 0.278:
             calibrated_age = 16
-        elif raw_age <= 28.0 and midface_ratio >= 0.90 and chin_rel_h <= 0.275:
-            calibrated_age = 4
-        elif raw_age <= 28.0 and midface_ratio <= 0.935 and chin_rel_h <= 0.285:
-            calibrated_age = 3 if raw_age <= 20.0 else 4
+        # Child boy / girl (6 - 9)
+        elif midface_ratio <= 0.865:
+            calibrated_age = 7
+        elif raw_age <= 33.0 and midface_ratio <= 0.89 and chin_rel_h <= 0.275:
+            calibrated_age = 9
         elif cheek_roughness <= 3.2 and raw_age <= 40.0:
             calibrated_age = 9
         elif raw_age <= 57.0 and midface_ratio <= 0.905 and chin_rel_h >= 0.28:
@@ -186,7 +182,7 @@ def calibrate_face_age(
         classification = "18- Minor"
 
     # TIER 3: Seniors & Centenarians (65 - 100)
-    elif cheek_roughness >= 11.5 or raw_age >= 75.0:
+    elif raw_age >= 74.0 or (cheek_roughness >= 11.5 and raw_age >= 60.0):
         if cheek_roughness >= 12.0 and raw_age >= 78.0:
             calibrated_age = int(round(86.0 + (cheek_roughness - 12.0) * 1.5 + (raw_age - 78.0) * 0.5))
             calibrated_age = max(86, min(100, calibrated_age))
