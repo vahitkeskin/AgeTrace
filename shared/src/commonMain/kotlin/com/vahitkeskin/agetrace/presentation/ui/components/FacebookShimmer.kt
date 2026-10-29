@@ -11,16 +11,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -28,170 +22,146 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.presentation.theme.AccentBlue
-import com.vahitkeskin.agetrace.presentation.theme.GlassBorder
-import com.vahitkeskin.agetrace.presentation.theme.TextMuted
 import com.vahitkeskin.agetrace.presentation.theme.TextPrimary
+import kotlin.math.sqrt
 
 /**
- * Animated Facebook-style diagonal wave shimmer brush.
- * Creates an authentic smooth sweeping light wave across placeholder elements.
+ * Full-bleed Facebook-style diagonal shimmering wave brush.
+ * Dynamically calculated according to container dimensions so the wave spans and completely
+ * covers the entire area of the large image viewport without gaps.
  */
 @Composable
-fun rememberFacebookShimmerBrush(
-    shimmerColors: List<Color> = listOf(
-        Color(0x08FFFFFF),
-        Color(0x1838BDF8),
-        Color(0x3838BDF8),
-        Color(0x6638BDF8),
-        Color(0x3838BDF8),
-        Color(0x1838BDF8),
-        Color(0x08FFFFFF)
-    ),
-    durationMillis: Int = 1300
-): Brush {
-    val transition = rememberInfiniteTransition(label = "facebook_shimmer_wave")
-    val translateAnimation by transition.animateFloat(
-        initialValue = -400f,
-        targetValue = 1800f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = durationMillis, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "shimmer_translation"
-    )
-
-    return Brush.linearGradient(
-        colors = shimmerColors,
-        start = Offset(x = translateAnimation - 450f, y = translateAnimation - 450f),
-        end = Offset(x = translateAnimation, y = translateAnimation)
-    )
-}
-
-/**
- * Full viewport shimmer skeleton rendered while an image is being loaded / analyzed from empty state.
- */
-@Composable
-fun FacebookShimmerSkeletonViewport(
-    modifier: Modifier = Modifier
+fun FullFacebookShimmer(
+    modifier: Modifier = Modifier,
+    isOverlay: Boolean = false
 ) {
-    val shimmerBrush = rememberFacebookShimmerBrush()
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val density = LocalDensity.current
+        val widthPx = with(density) { maxWidth.toPx() }
+        val heightPx = with(density) { maxHeight.toPx() }
+        val diagonal = sqrt(widthPx * widthPx + heightPx * heightPx).coerceAtLeast(600f)
 
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxSize()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xD90B0F19)),
-        contentAlignment = Alignment.Center
-    ) {
-        // 1. Full-bleed diagonal shimmer wave
+        val transition = rememberInfiniteTransition(label = "facebook_shimmer_wave")
+        val translateAnimation by transition.animateFloat(
+            initialValue = -diagonal * 0.4f,
+            targetValue = diagonal * 1.5f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1300, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "shimmer_translation"
+        )
+
+        val waveSpan = diagonal * 0.55f
+
+        val shimmerColors = if (isOverlay) {
+            // Radiant translucent wave when sweeping over an already visible photo
+            listOf(
+                Color.Transparent,
+                Color(0x1F38BDF8),
+                Color(0x5538BDF8),
+                Color(0xC0FFFFFF),
+                Color(0x5538BDF8),
+                Color(0x1F38BDF8),
+                Color.Transparent
+            )
+        } else {
+            // High-contrast vivid Facebook shimmer over deep luxury dark background
+            listOf(
+                Color(0x0A38BDF8),
+                Color(0x2838BDF8),
+                Color(0x6038BDF8),
+                Color(0xE6FFFFFF),
+                Color(0x6038BDF8),
+                Color(0x2838BDF8),
+                Color(0x0A38BDF8)
+            )
+        }
+
+        val shimmerBrush = Brush.linearGradient(
+            colors = shimmerColors,
+            start = Offset(x = translateAnimation - waveSpan, y = translateAnimation - waveSpan),
+            end = Offset(x = translateAnimation, y = translateAnimation)
+        )
+
+        // 1. Shimmer base layer covering the entire large image viewport
+        if (!isOverlay) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xD90B0F19))
+            )
+        }
+
+        // 2. The full-bleed sweeping wave covering the entire large image area
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(shimmerBrush)
         )
 
-        // 2. Shimmering Biometric Skeleton Anatomy
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(24.dp)
+        // 3. Floating Frosted Status Badge at bottom center
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp)
         ) {
-            // Simulated shimmering face focus bracket box
-            Box(
-                modifier = Modifier
-                    .size(130.dp, 150.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0x14FFFFFF))
-                    .border(1.5.dp, shimmerBrush, RoundedCornerShape(16.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                // Shimmering Face silhouette circle
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(shimmerBrush)
-                )
-
-                // Shimmering scanning line
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.85f)
-                        .height(2.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(AccentBlue.copy(alpha = 0.8f))
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // 3. Elegant Frosted Status Pill
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0xB30F172A))
-                    .border(1.dp, Color(0x3338BDF8), RoundedCornerShape(999.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .background(Color(0xE60F172A), RoundedCornerShape(999.dp))
+                    .border(1.dp, Color(0x4038BDF8), RoundedCornerShape(999.dp))
+                    .padding(horizontal = 14.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.size(13.dp),
                     color = AccentBlue,
                     strokeWidth = 2.dp
                 )
-
                 Text(
-                    text = "Görsel yükleniyor & analiz ediliyor...",
+                    text = "Görsel taranıyor...",
                     color = TextPrimary,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Yapay zeka biyometrik yüz tespiti devrede",
-                color = TextMuted,
-                fontSize = 11.sp
-            )
         }
     }
 }
 
 /**
+ * Full viewport shimmer skeleton rendered while an image is being loaded / analyzed from empty state.
+ * Fully covers the large image container area.
+ */
+@Composable
+fun FacebookShimmerSkeletonViewport(
+    modifier: Modifier = Modifier
+) {
+    FullFacebookShimmer(
+        modifier = modifier,
+        isOverlay = false
+    )
+}
+
+/**
  * Lightweight shimmer wave overlay drawn over an existing image while re-analysis or rotation is running.
+ * Fully covers the large image area.
  */
 @Composable
 fun FacebookShimmerViewportOverlay(
     modifier: Modifier = Modifier
 ) {
-    val shimmerBrush = rememberFacebookShimmerBrush(
-        shimmerColors = listOf(
-            Color.Transparent,
-            Color(0x1538BDF8),
-            Color(0x4038BDF8),
-            Color(0x6038BDF8),
-            Color(0x4038BDF8),
-            Color(0x1538BDF8),
-            Color.Transparent
-        ),
-        durationMillis = 1100
-    )
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(shimmerBrush)
+    FullFacebookShimmer(
+        modifier = modifier,
+        isOverlay = true
     )
 }
-

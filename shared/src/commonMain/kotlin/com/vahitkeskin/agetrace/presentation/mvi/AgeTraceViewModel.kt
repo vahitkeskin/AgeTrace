@@ -216,6 +216,21 @@ class AgeTraceViewModel(
 
                 val imageBitmap = PlatformImageBridge.pixelBufferToImageBitmap(buffer)
 
+                // Immediately display the large image so the user sees their photo right away,
+                // while the shimmering wave runs across the ENTIRE large image area!
+                _state.update {
+                    it.copy(
+                        currentImageSource = source,
+                        pixelBuffer = buffer,
+                        cleanDisplayBitmap = imageBitmap,
+                        blurredDisplayBitmap = imageBitmap,
+                        displayBitmap = imageBitmap,
+                        detectedFaces = emptyList(),
+                        selectedFace = null,
+                        isAnalyzing = true
+                    )
+                }
+
                 // For reference samples, immediately load verified ground-truth biometric annotations
                 if (source is ImageSource.PreloadedSample) {
                     val knownFaces = SampleFaceFactory.getKnownFacesForSample(source.id)
