@@ -6,3 +6,4 @@ import androidx.compose.runtime.Composable
 actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
     // iOS does not have a system hardware back button
 }
+

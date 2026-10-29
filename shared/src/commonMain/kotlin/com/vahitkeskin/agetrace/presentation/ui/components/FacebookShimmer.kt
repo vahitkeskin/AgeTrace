@@ -194,3 +194,4 @@ fun FacebookShimmerViewportOverlay(
             .background(shimmerBrush)
     )
 }
+
