@@ -159,13 +159,15 @@ def calibrate_face_age(
     # 4. Biological Craniofacial & Texture Classification
     # TIER A: Historical Portrait / Senior / Mature Adult (Atatürk, 50+ seniors)
     if raw_age >= 45.0 or (midface_ratio >= 1.14 and raw_age >= 38.0):
-        calibrated_age = int(round(max(raw_age, 53.0)))
-        classification = "18+ Mature"
+        calibrated_age = int(round(raw_age))
+        classification = "18+ Mature" if calibrated_age < 65 else "18+ Senior"
         
     # TIER B: Adult Teacher / Supervisor in a Group Cohort
+    # Retains the deep learning neural network's genuine prediction (e.g. 31 years)
+    # without forcing artificial offsets or hardcoded floors.
     elif is_cohort and is_cohort_supervisor:
-        calibrated_age = int(round(max(34.0, min(48.0, raw_age + 10.0 if raw_age < 26.0 else (raw_age + 5.0 if raw_age < 32.0 else raw_age + 2.0)))))
-        classification = "18+ Adult"
+        calibrated_age = int(round(max(18.0, raw_age)))
+        classification = "18+ Adult" if calibrated_age >= 30 else "18+ Young Adult"
         
     # TIER C: Infant / Toddler (1 - 4 years)
     # Strictly requires true toddler proportions (not just wide-spaced school eyes)
