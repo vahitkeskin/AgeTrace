@@ -229,4 +229,47 @@ class AgeTraceCleanArchitectureTest {
         val hasActiveImageAfterClear = clearedState.displayBitmap != null || clearedState.currentImageSource != null || clearedState.detectedFaces.isNotEmpty()
         assertTrue(!hasActiveImageAfterClear, "BackHandler should be disabled when image area is empty, enabling system app exit")
     }
+
+    @Test
+    fun testFacialHairPreventsMinorClassification() {
+        val estimator = BiometricAgeEstimator()
+        val adultPortrait = SampleFaceFactory.generatePortrait(36)
+        // Simulate dark facial hair / beard stubble across lower-face chin region
+        val pixels = adultPortrait.pixels.copyOf()
+        val w = adultPortrait.width
+        val h = adultPortrait.height
+        val startY = (h * 0.55f).toInt()
+        val endY = (h * 0.75f).toInt()
+        val startX = (w * 0.35f).toInt()
+        val endX = (w * 0.65f).toInt()
+        for (y in startY..endY) {
+            for (x in startX..endX) {
+                val idx = y * w + x
+                val noise = if ((x + y) % 2 == 0) 20 else 0
+                pixels[idx] = (0xFF shl 24) or ((35 + noise) shl 16) or ((28 + noise) shl 8) or (22 + noise)
+            }
+        }
+        val beardedBuffer = com.vahitkeskin.agetrace.domain.model.PixelBuffer(w, h, pixels)
+        val faceBox = BoundingBox(0.2f, 0.15f, 0.6f, 0.7f)
+        val estimation = estimator.estimate(beardedBuffer, faceBox)
+        println("TEST ESTIMATION: age=${estimation.estimatedAge}, class=${estimation.classification}, biometrics=${estimation.biometrics}")
+        assertTrue(
+            estimation.estimatedAge >= 25,
+            "An adult portrait with facial hair/beard must never be classified under 25 (got ${estimation.estimatedAge})"
+        )
+        assertTrue(
+            estimation.classification != AgeClassification.MINOR,
+            "Classification must be an adult category, never MINOR"
+        )
+    }
+
+    @Test
+    fun testPlatformOnnxEstimatorSafety() {
+        val dummyFloats = FloatArray(3 * 96 * 96)
+        // If not initialized, estimate safely returns null without throwing exceptions
+        if (!com.vahitkeskin.agetrace.data.cv.PlatformOnnxEstimator.isSupported()) {
+            val res = com.vahitkeskin.agetrace.data.cv.PlatformOnnxEstimator.estimate(dummyFloats)
+            assertEquals(null, res)
+        }
+    }
 }

@@ -44,6 +44,10 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation("com.google.mlkit:face-detection:16.1.7")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
+            implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
+        }
+        jvmMain.dependencies {
+            implementation("com.microsoft.onnxruntime:onnxruntime:1.19.2")
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
