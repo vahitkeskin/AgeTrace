@@ -10,3 +10,4 @@ import androidx.compose.runtime.Composable
 expect fun rememberCameraCaptureLauncher(
     onImageCaptured: (name: String, bytes: ByteArray) -> Unit
 ): () -> Unit
+

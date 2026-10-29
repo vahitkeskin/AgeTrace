@@ -12,3 +12,4 @@ actual fun rememberCameraCaptureLauncher(
         PlatformImageBridge.openFilePicker(onImageCaptured)
     }
 }
+
