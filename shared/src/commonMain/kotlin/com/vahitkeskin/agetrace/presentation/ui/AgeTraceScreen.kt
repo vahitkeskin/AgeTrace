@@ -517,7 +517,7 @@ private fun MainViewport(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = if (state.isMinorBlurEnabled) "🛡️ Reşit Değil" else "👁️ Reşit Değil",
+                            text = if (state.isMinorBlurEnabled) "🛡️ Yüzü Gizle (Maps)" else "👁️ Yüzü Gizle",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = if (state.isMinorBlurEnabled) MinorColor else TextSecondary

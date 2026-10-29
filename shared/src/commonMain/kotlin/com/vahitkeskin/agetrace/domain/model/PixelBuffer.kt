@@ -1,7 +1,9 @@
 package com.vahitkeskin.agetrace.domain.model
 
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -117,19 +119,26 @@ class PixelBuffer(
      * exclusively over the specified minor face bounding boxes.
      * Adults and background outside the face ellipses remain completely untouched.
      */
-    fun withBlurredMinorFaces(minorBoxes: List<BoundingBox>): PixelBuffer {
-        if (minorBoxes.isEmpty()) return this
+    /**
+     * Applies an authentic Google Maps Street View privacy blur over detected face bounding boxes.
+     * Encompasses the entire head, hairline, forehead, jaw, and chin with a superellipse mask,
+     * ensuring 100% full frosted Gaussian blur across the entire face with zero empty gaps or bleed-through.
+     */
+    fun withBlurredFaces(boxes: List<BoundingBox>): PixelBuffer {
+        if (boxes.isEmpty()) return this
         return try {
             val outPixels = pixels.copyOf()
-            for (box in minorBoxes) {
+            for (box in boxes) {
                 applyGoogleMapsFaceBlur(box, outPixels)
             }
             PixelBuffer(width, height, outPixels)
         } catch (t: Throwable) {
-            println("PixelBuffer.withBlurredMinorFaces error: ${t.message}")
+            println("PixelBuffer.withBlurredFaces error: ${t.message}")
             this
         }
     }
+
+    fun withBlurredMinorFaces(minorBoxes: List<BoundingBox>): PixelBuffer = withBlurredFaces(minorBoxes)
 
     private fun applyGoogleMapsFaceBlur(box: BoundingBox, targetPixels: IntArray) {
         val boxW = box.normalizedWidth * width
@@ -137,24 +146,26 @@ class PixelBuffer(
         val cx = box.centerX * width
         val cy = box.centerY * height
 
-        // Ellipse semi-axes with 18% margin to fully cover head, chin, and hair
-        val rx = (boxW * 0.58f).coerceAtLeast(6f)
-        val ry = (boxH * 0.62f).coerceAtLeast(6f)
+        // Center shifted slightly upward to account for forehead, hairline, and hair volume
+        val headCy = cy - boxH * 0.05f
 
-        // Bounding rectangle encompassing the ellipse + feather zone
-        val minX = (cx - rx * 1.15f).toInt().coerceIn(0, width - 1)
-        val maxX = (cx + rx * 1.15f).toInt().coerceIn(minX + 1, width)
-        val minY = (cy - ry * 1.15f).toInt().coerceIn(0, height - 1)
-        val maxY = (cy + ry * 1.15f).toInt().coerceIn(minY + 1, height)
+        // Generous head-proportional semi-axes (covers temples, jaw, chin, and hair boundary)
+        val rx = (boxW * 0.72f).coerceAtLeast(10f)
+        val ry = (boxH * 0.82f).coerceAtLeast(12f)
+
+        // Bounding rectangle encompassing the superellipse + feather margin
+        val minX = (cx - rx * 1.12f).toInt().coerceIn(0, width - 1)
+        val maxX = (cx + rx * 1.12f).toInt().coerceIn(minX + 1, width)
+        val minY = (headCy - ry * 1.12f).toInt().coerceIn(0, height - 1)
+        val maxY = (headCy + ry * 1.12f).toInt().coerceIn(minY + 1, height)
 
         val regionW = maxX - minX
         val regionH = maxY - minY
         if (regionW < 4 || regionH < 4) return
 
-        // Downsample factor: 6x to 8x downsampled grid for heavy frosted Gaussian blur
-        val downsampleFactor = 6.coerceAtMost(min(regionW, regionH) / 4).coerceAtLeast(2)
-        val gridW = (regionW / downsampleFactor).coerceIn(8, 48)
-        val gridH = (regionH / downsampleFactor).coerceIn(8, 48)
+        // Downsample factor: downsamples patch for a smooth, frosted Gaussian diffusion
+        val gridW = (regionW / 8).coerceIn(16, 42)
+        val gridH = (regionH / 8).coerceIn(16, 42)
 
         val smallGrid = IntArray(gridW * gridH)
         val xStep = regionW.toFloat() / gridW
@@ -171,46 +182,48 @@ class PixelBuffer(
             }
         }
 
-        // Multi-pass separable box blur (2 passes H+V yields true Gaussian blur via CLT)
+        // Multi-pass separable box blur (3 passes H+V yields true Gaussian bell curve via CLT)
         val tempGrid = IntArray(gridW * gridH)
-        val blurRadius = 2.coerceAtMost((min(gridW, gridH) - 1) / 2).coerceAtLeast(1)
+        val blurRadius = (min(gridW, gridH) / 6).coerceIn(2, 5)
 
-        // Pass 1
-        boxBlurHorizontal(smallGrid, tempGrid, gridW, gridH, blurRadius)
-        boxBlurVertical(tempGrid, smallGrid, gridW, gridH, blurRadius)
-        // Pass 2
-        boxBlurHorizontal(smallGrid, tempGrid, gridW, gridH, blurRadius)
-        boxBlurVertical(tempGrid, smallGrid, gridW, gridH, blurRadius)
+        repeat(3) {
+            boxBlurHorizontal(smallGrid, tempGrid, gridW, gridH, blurRadius)
+            boxBlurVertical(tempGrid, smallGrid, gridW, gridH, blurRadius)
+        }
 
-        // Smooth elliptical blending onto target image
-        val rxSq = rx * rx
-        val rySq = ry * ry
+        // Superellipse power p = 2.8 for head-conforming squircle shape (fills jaw and forehead corners)
+        val p = 2.8f
+        val invP = 1.0f / p
 
         for (y in minY until maxY) {
-            val dy = y - cy
-            val dySqNorm = (dy * dy) / rySq
-            if (dySqNorm >= 1.25f) continue // Early skip outside vertical bounds
+            val dy = abs(y - headCy)
+            val ny = dy / ry
+            if (ny >= 1.12f) continue
+            val nyPow = ny.pow(p)
 
             val rowOffset = y * width
             val v = ((y - minY).toFloat() / regionH * (gridH - 1)).coerceIn(0f, (gridH - 1).toFloat())
 
             for (x in minX until maxX) {
-                val dx = x - cx
-                val dSq = (dx * dx) / rxSq + dySqNorm
-                val d = sqrt(dSq)
+                val dx = abs(x - cx)
+                val nx = dx / rx
+                if (nx >= 1.12f) continue
 
-                // Outside Google Maps feather ellipse zone -> leave original pixel untouched
+                val d = (nx.pow(p) + nyPow).pow(invP)
+
+                // Outside Google Maps perimeter feather zone -> leave original pixel untouched
                 if (d >= 1.05f) continue
 
-                // Bilinear sample from small blurred grid
+                // Bilinear sample from Gaussian frosted grid
                 val u = ((x - minX).toFloat() / regionW * (gridW - 1)).coerceIn(0f, (gridW - 1).toFloat())
                 val blurredRgb = sampleBilinear(smallGrid, gridW, gridH, u, v)
 
-                // Google Maps feather weight: 1.0 in core (d <= 0.65), smooth hermite curve to 0.0 at d = 1.05
-                val weight = if (d <= 0.65f) {
+                // Google Maps Street View weight: 1.0 (100% solid blur) across entire face (d <= 0.90)
+                // Smooth cubic hermite feather between 0.90 and 1.05 at outer perimeter
+                val weight = if (d <= 0.90f) {
                     1.0f
                 } else {
-                    val t = (d - 0.65f) / 0.40f
+                    val t = (d - 0.90f) / 0.15f
                     1.0f - (t * t * (3f - 2f * t))
                 }
 

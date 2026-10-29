@@ -137,9 +137,9 @@ class AgeTraceViewModel(
                             buffer = rotatedBuffer,
                             preferredEngine = _state.value.selectedEngine
                         )
-                        val minorBoxes = analysisResult.faces.filter { !it.classification.isAdult }.map { it.boundingBox }
-                        val blurredBitmap = if (minorBoxes.isNotEmpty()) {
-                            val blurredBuffer = rotatedBuffer.withBlurredMinorFaces(minorBoxes)
+                        val faceBoxes = analysisResult.faces.map { it.boundingBox }
+                        val blurredBitmap = if (faceBoxes.isNotEmpty()) {
+                            val blurredBuffer = rotatedBuffer.withBlurredFaces(faceBoxes)
                             PlatformImageBridge.pixelBufferToImageBitmap(blurredBuffer)
                         } else rotatedBitmap
 
@@ -164,14 +164,21 @@ class AgeTraceViewModel(
 
             AgeTraceContract.Intent.ToggleMinorBlur -> {
                 val newEnabled = !_state.value.isMinorBlurEnabled
-                val targetBitmap = if (newEnabled && _state.value.blurredDisplayBitmap != null) {
-                    _state.value.blurredDisplayBitmap
+                var blurred = _state.value.blurredDisplayBitmap
+                if (newEnabled && blurred == null && _state.value.pixelBuffer != null && _state.value.detectedFaces.isNotEmpty()) {
+                    val faceBoxes = _state.value.detectedFaces.map { it.boundingBox }
+                    val blurredBuffer = _state.value.pixelBuffer!!.withBlurredFaces(faceBoxes)
+                    blurred = PlatformImageBridge.pixelBufferToImageBitmap(blurredBuffer)
+                }
+                val targetBitmap = if (newEnabled && blurred != null) {
+                    blurred
                 } else {
                     _state.value.cleanDisplayBitmap ?: _state.value.displayBitmap
                 }
                 _state.update {
                     it.copy(
                         isMinorBlurEnabled = newEnabled,
+                        blurredDisplayBitmap = blurred ?: it.blurredDisplayBitmap,
                         displayBitmap = targetBitmap
                     )
                 }
@@ -242,9 +249,9 @@ class AgeTraceViewModel(
                     val knownFaces = SampleFaceFactory.getKnownFacesForSample(source.id)
                     if (knownFaces.isNotEmpty()) {
                         val primaryFace = knownFaces.first()
-                        val minorBoxes = knownFaces.filter { !it.classification.isAdult }.map { it.boundingBox }
-                        val blurredBitmap = if (minorBoxes.isNotEmpty()) {
-                            val blurredBuffer = buffer.withBlurredMinorFaces(minorBoxes)
+                        val faceBoxes = knownFaces.map { it.boundingBox }
+                        val blurredBitmap = if (faceBoxes.isNotEmpty()) {
+                            val blurredBuffer = buffer.withBlurredFaces(faceBoxes)
                             PlatformImageBridge.pixelBufferToImageBitmap(blurredBuffer)
                         } else imageBitmap
 
@@ -300,9 +307,9 @@ class AgeTraceViewModel(
                     PlatformImageBridge.pixelBufferToImageBitmap(finalBuffer)
                 } else imageBitmap
 
-                val minorBoxes = analysisResult.faces.filter { !it.classification.isAdult }.map { it.boundingBox }
-                val blurredBitmap = if (minorBoxes.isNotEmpty()) {
-                    val blurredBuffer = finalBuffer.withBlurredMinorFaces(minorBoxes)
+                val faceBoxes = analysisResult.faces.map { it.boundingBox }
+                val blurredBitmap = if (faceBoxes.isNotEmpty()) {
+                    val blurredBuffer = finalBuffer.withBlurredFaces(faceBoxes)
                     PlatformImageBridge.pixelBufferToImageBitmap(blurredBuffer)
                 } else finalBitmap
 
@@ -346,9 +353,9 @@ class AgeTraceViewModel(
                         preferredEngine = _state.value.selectedEngine
                     )
 
-                    val minorBoxes = analysisResult.faces.filter { !it.classification.isAdult }.map { it.boundingBox }
-                    val blurredBitmap = if (minorBoxes.isNotEmpty()) {
-                        val blurredBuffer = frameBuffer.withBlurredMinorFaces(minorBoxes)
+                    val faceBoxes = analysisResult.faces.map { it.boundingBox }
+                    val blurredBitmap = if (faceBoxes.isNotEmpty()) {
+                        val blurredBuffer = frameBuffer.withBlurredFaces(faceBoxes)
                         PlatformImageBridge.pixelBufferToImageBitmap(blurredBuffer)
                     } else frameBitmap
 
