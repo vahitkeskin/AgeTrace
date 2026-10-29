@@ -24,23 +24,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,13 +42,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vahitkeskin.agetrace.domain.model.DetectionMode
 import com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract
 import com.vahitkeskin.agetrace.presentation.mvi.AgeTraceViewModel
+import com.vahitkeskin.agetrace.presentation.theme.AccentBlue
+import com.vahitkeskin.agetrace.presentation.theme.AmbientGlassBackdrop
 import com.vahitkeskin.agetrace.presentation.theme.BackgroundDark
-import com.vahitkeskin.agetrace.presentation.theme.CyanNeon
 import com.vahitkeskin.agetrace.presentation.theme.GlassBorder
+import com.vahitkeskin.agetrace.presentation.theme.GlassSpecularBorderBrush
 import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicCard
-import com.vahitkeskin.agetrace.presentation.theme.GreenSuccess
+import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicIconButton
+import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicPill
+import com.vahitkeskin.agetrace.presentation.theme.MinorColor
+import com.vahitkeskin.agetrace.presentation.theme.MinorColorBg
 import com.vahitkeskin.agetrace.presentation.theme.NeonRed
-import com.vahitkeskin.agetrace.presentation.theme.SurfaceBorder
 import com.vahitkeskin.agetrace.presentation.theme.SurfaceCard
 import com.vahitkeskin.agetrace.presentation.theme.TextMuted
 import com.vahitkeskin.agetrace.presentation.theme.TextPrimary
@@ -65,6 +63,10 @@ import com.vahitkeskin.agetrace.presentation.ui.components.FileUploadDropZone
 import com.vahitkeskin.agetrace.presentation.ui.components.MetricsSidePanel
 import com.vahitkeskin.agetrace.presentation.ui.components.rememberGalleryPickerLauncher
 
+/**
+ * AgeTrace Main Screen.
+ * Completely redesigned with a polite, minimal, executive Glassmorphism design system.
+ */
 @Composable
 fun AgeTraceScreen(
     modifier: Modifier = Modifier,
@@ -95,12 +97,15 @@ fun AgeTraceScreen(
             .fillMaxSize()
             .background(BackgroundDark)
     ) {
+        // Living atmospheric ambient glow spots for authentic glass refraction
+        AmbientGlassBackdrop()
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 22.dp, vertical = 18.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
-            // 1. Sleek Minimal Header (Unified title, status, mode toggle, and reset)
+            // 1. Floating Frosted Glass Header
             MinimalHeader(
                 isAnalyzing = state.isAnalyzing,
                 selectedMode = state.selectedMode,
@@ -111,17 +116,17 @@ fun AgeTraceScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 2. Responsive Workspace: Viewport & Overlay + Live Metrics Panel
+            // 2. Responsive Workspace
             BoxWithConstraints(modifier = Modifier.weight(1f)) {
                 val isWide = maxWidth >= 880.dp
 
                 if (isWide) {
-                    // Desktop / Wide Layout (Two Columns, Zero Overlap)
+                    // Desktop / Tablet Wide Layout (Two Columns)
                     Row(
                         modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(22.dp)
+                        horizontalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
-                        // Left Column: Viewport + File Picker Controls
+                        // Left Column: Viewport + Controls
                         Column(
                             modifier = Modifier
                                 .weight(1.4f)
@@ -135,7 +140,8 @@ fun AgeTraceScreen(
                                 state = state,
                                 onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
                                 onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
-                                onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) }
+                                onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) },
+                                onPickFileClick = { galleryLauncher() }
                             )
 
                             if (state.detectedFaces.isNotEmpty()) {
@@ -175,19 +181,19 @@ fun AgeTraceScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         MainViewport(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(360.dp),
+                                .height(380.dp),
                             state = state,
                             onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
                             onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
-                            onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) }
+                            onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) },
+                            onPickFileClick = { galleryLauncher() }
                         )
 
-                        // Head Avatars Strip positioned directly above the File Upload Card
                         if (state.detectedFaces.isNotEmpty()) {
                             DetectedFaceAvatarsStrip(
                                 modifier = Modifier.fillMaxWidth(),
@@ -214,7 +220,7 @@ fun AgeTraceScreen(
                             selectedFace = state.selectedFace
                         )
 
-                        Spacer(modifier = Modifier.height(64.dp))
+                        Spacer(modifier = Modifier.height(48.dp))
                     }
                 }
             }
@@ -222,6 +228,9 @@ fun AgeTraceScreen(
     }
 }
 
+/**
+ * Floating Frosted Glass Header with brand mark, status indicator, mode selector, and reset action.
+ */
 @Composable
 private fun MinimalHeader(
     isAnalyzing: Boolean,
@@ -230,122 +239,161 @@ private fun MinimalHeader(
     onModeChange: (DetectionMode) -> Unit,
     onClearClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+    GlassmorphicCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 20.dp,
+        borderBrush = GlassSpecularBorderBrush
     ) {
-        // App Title with small glowing status dot
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "AgeTrace",
-                color = TextPrimary,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.5).sp
-            )
-            // Tiny green active status dot
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF10B981))
-            )
-        }
-
-        // Action controls: Clean Mode Pill [ Fotoğraf | Kamera ] + Subtle Reset
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (isAnalyzing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    color = Color(0xFF38BDF8),
-                    strokeWidth = 2.dp
-                )
-            }
-
-            // Compact Mode Selector Pill
+            // Brand Mark: Glowing Sparkle + Clean Typography + Live Indicator Dot
             Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(SurfaceCard.copy(alpha = 0.85f))
-                    .border(1.dp, GlassBorder, RoundedCornerShape(20.dp))
-                    .padding(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                DetectionMode.entries.forEach { mode ->
-                    val isSelected = (mode == selectedMode)
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(
+                            brush = Brush.verticalGradient(
+                                listOf(Color(0x3838BDF8), Color(0x1438BDF8))
+                            )
+                        )
+                        .border(1.dp, Color(0x3338BDF8), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "✦",
+                        color = AccentBlue,
+                        fontSize = 15.sp
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "AgeTrace",
+                        color = TextPrimary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.4).sp
+                    )
+
+                    // Subtle Live/Active Status Dot
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) Color(0xFF26334A) else Color.Transparent)
-                            .clickable { onModeChange(mode) }
-                            .padding(horizontal = 12.dp, vertical = 5.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (mode == DetectionMode.LIVE_CAMERA && isCameraStreaming) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(NeonRed)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                            }
-                            Text(
-                                text = if (mode == DetectionMode.IMAGE_UPLOAD) "Fotoğraf" else "Kamera",
-                                color = if (isSelected) TextPrimary else TextMuted,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                            )
-                        }
-                    }
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(if (isCameraStreaming) NeonRed else Color(0xFF10B981))
+                    )
                 }
             }
 
-            // Reset Button (Icon only, subtle and polite)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(SurfaceCard.copy(alpha = 0.85f))
-                    .border(1.dp, GlassBorder, CircleShape)
-                    .clickable { onClearClick() },
-                contentAlignment = Alignment.Center
+            // Action Controls: Spinner + Glass Mode Pill + Reset Button
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "↺",
-                    color = TextSecondary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                if (isAnalyzing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = AccentBlue,
+                        strokeWidth = 2.dp
+                    )
+                }
+
+                // Frosted Segmented Mode Pill [ Fotoğraf | Kamera ]
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color(0x14FFFFFF))
+                        .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(999.dp))
+                        .padding(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    DetectionMode.entries.forEach { mode ->
+                        val isSelected = (mode == selectedMode)
+                        val pillBg by animateColorAsState(
+                            targetValue = if (isSelected) Color(0x3838BDF8) else Color.Transparent,
+                            label = "pill_bg"
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(pillBg)
+                                .then(
+                                    if (isSelected) {
+                                        Modifier.border(1.dp, AccentBlue.copy(alpha = 0.5f), RoundedCornerShape(999.dp))
+                                    } else Modifier
+                                )
+                                .clickable { onModeChange(mode) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (mode == DetectionMode.LIVE_CAMERA && isCameraStreaming) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(5.dp)
+                                            .clip(CircleShape)
+                                            .background(NeonRed)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Text(
+                                    text = if (mode == DetectionMode.IMAGE_UPLOAD) "Fotoğraf" else "Kamera",
+                                    color = if (isSelected) TextPrimary else TextMuted,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Reset Action
+                GlassmorphicIconButton(
+                    icon = "↺",
+                    onClick = onClearClick,
+                    size = 34.dp
                 )
             }
         }
     }
 }
 
+/**
+ * Main Viewport for Camera / Image rendering with floating glassmorphic controls.
+ */
 @Composable
 private fun MainViewport(
     modifier: Modifier = Modifier,
     state: AgeTraceContract.State,
     onFaceClick: (com.vahitkeskin.agetrace.domain.model.DetectedFace) -> Unit,
     onRotateClick: () -> Unit,
-    onToggleBlurClick: () -> Unit
+    onToggleBlurClick: () -> Unit,
+    onPickFileClick: () -> Unit
 ) {
     GlassmorphicCard(
         modifier = modifier,
-        cornerRadius = 16.dp,
-        backgroundColor = SurfaceCard.copy(alpha = 0.85f),
-        borderColor = if (state.isCameraStreaming) NeonRed.copy(alpha = 0.5f) else GlassBorder
+        cornerRadius = 20.dp,
+        borderBrush = if (state.isCameraStreaming) {
+            Brush.verticalGradient(
+                listOf(NeonRed.copy(alpha = 0.6f), Color(0x1AFFFFFF))
+            )
+        } else {
+            GlassSpecularBorderBrush
+        }
     ) {
         val displayBitmap = state.displayBitmap
         val pixelBuffer = state.pixelBuffer
@@ -376,27 +424,41 @@ private fun MainViewport(
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(10.dp),
+                        .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Glassmorphic Switch Button for Minor Face Blur
                     val thumbOffset by animateDpAsState(
                         targetValue = if (state.isMinorBlurEnabled) 15.dp else 2.dp,
                         label = "minor_blur_switch"
                     )
 
+                    // Glassmorphic Switch Button for Minor Face Blur
                     Row(
                         modifier = Modifier
-                            .height(36.dp)
-                            .clip(RoundedCornerShape(18.dp))
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(999.dp))
                             .background(
-                                if (state.isMinorBlurEnabled) Color(0xD9064E3B) else Color(0xD90F172A)
+                                brush = if (state.isMinorBlurEnabled) {
+                                    Brush.verticalGradient(
+                                        listOf(MinorColorBg, Color(0xB3064E3B))
+                                    )
+                                } else {
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xD90F172A), Color(0xB30F172A))
+                                    )
+                                }
                             )
                             .border(
                                 width = 1.dp,
-                                color = if (state.isMinorBlurEnabled) Color(0x9934D399) else Color(0x33FFFFFF),
-                                shape = RoundedCornerShape(18.dp)
+                                brush = if (state.isMinorBlurEnabled) {
+                                    Brush.verticalGradient(
+                                        listOf(MinorColor.copy(alpha = 0.8f), MinorColor.copy(alpha = 0.3f))
+                                    )
+                                } else {
+                                    GlassSpecularBorderBrush
+                                },
+                                shape = RoundedCornerShape(999.dp)
                             )
                             .clickable { onToggleBlurClick() }
                             .padding(horizontal = 10.dp),
@@ -404,82 +466,105 @@ private fun MainViewport(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = if (state.isMinorBlurEnabled) "🛡️ Reşit Değil" else "👁️ Reşit Değil",
-                            fontSize = 12.sp,
+                            text = if (state.isMinorBlurEnabled) "🛡️ Reşit Değil Koruması" else "👁️ Reşit Değil",
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (state.isMinorBlurEnabled) Color(0xFF34D399) else Color(0xFFCBD5E1)
+                            color = if (state.isMinorBlurEnabled) MinorColor else TextSecondary
                         )
 
-                        // Pill Switch Track & Moving Thumb
+                        // Smooth Capsule Switch Track & Moving Thumb
                         Box(
                             modifier = Modifier
-                                .width(32.dp)
-                                .height(18.dp)
+                                .width(30.dp)
+                                .height(16.dp)
                                 .clip(CircleShape)
-                                .background(if (state.isMinorBlurEnabled) Color(0xFF10B981) else Color(0xFF334155))
+                                .background(if (state.isMinorBlurEnabled) MinorColor else Color(0xFF334155))
                         ) {
                             Box(
                                 modifier = Modifier
                                     .padding(start = thumbOffset, top = 2.dp)
-                                    .size(14.dp)
+                                    .size(12.dp)
                                     .clip(CircleShape)
                                     .background(Color.White)
                             )
                         }
                     }
 
-                    // Sleek Floating Rotate Button
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xD90F172A))
-                            .border(1.dp, Color(0x33FFFFFF), CircleShape)
-                            .clickable { onRotateClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "🔄",
-                            fontSize = 15.sp
-                        )
-                    }
+                    // Frosted Glass Rotate Button
+                    GlassmorphicIconButton(
+                        icon = "🔄",
+                        onClick = onRotateClick,
+                        size = 34.dp
+                    )
                 }
             }
         } else {
+            // Polite, Minimalist Frosted Empty State
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(24.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(54.dp)
+                            .size(62.dp)
                             .clip(CircleShape)
-                            .background(SurfaceCard)
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    listOf(Color(0x38FFFFFF), Color(0x0FFFFFFF))
+                                )
+                            )
                             .border(1.dp, GlassBorder, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "📷",
-                            fontSize = 22.sp
+                            fontSize = 24.sp
                         )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                     Text(
                         text = "Fotoğraf Bekleniyor",
                         color = TextPrimary,
-                        fontSize = 15.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Bir fotoğraf seçin veya referans portrelerden birini deneyin",
+                        text = "Bir fotoğraf seçin veya aşağıdaki referans portrelerden birini deneyin",
                         color = TextMuted,
-                        fontSize = 12.sp
+                        fontSize = 12.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = 17.sp
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Polite Action Button inside empty state
+                    GlassmorphicPill(
+                        isSelected = true,
+                        selectedColor = AccentBlue,
+                        onClick = onPickFileClick
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(text = "✦", color = AccentBlue, fontSize = 12.sp)
+                            Text(
+                                text = "Fotoğraf Seç",
+                                color = TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
-

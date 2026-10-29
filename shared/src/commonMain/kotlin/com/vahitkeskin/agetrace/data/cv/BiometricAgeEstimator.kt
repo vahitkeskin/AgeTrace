@@ -11,6 +11,7 @@ import kotlin.math.roundToInt
  * Biological Age Estimation Engine.
  * Extracts anthropometric proportions, high-frequency wrinkle gradients,
  * and skin micro-texture roughness directly from face pixels.
+ * Features biological cross-validation: separates hair fringes (kahkül) from true dermal wrinkles.
  */
 class BiometricAgeEstimator {
 
@@ -51,7 +52,7 @@ class BiometricAgeEstimator {
         )
 
         // Normalize wrinkle score between 0.0 and 1.0
-        val wrinkleScore = (foreheadWrinkleRaw / 48.0f).coerceIn(0.02f, 0.98f)
+        val rawWrinkleScore = (foreheadWrinkleRaw / 28.0f).coerceIn(0.02f, 0.98f)
 
         // 3. Periorbital (Crow's Feet) & Micro-Edge Energy (Near lateral canthi of eyes)
         val leftCrowX = (fw * 0.18f).toInt()
@@ -67,7 +68,7 @@ class BiometricAgeEstimator {
             faceBuffer, rightCrowX, crowY, crowW, crowH
         )
         val crowEnergyAvg = (leftCrowEnergy + rightCrowEnergy) / 2f
-        val periorbitalScore = (crowEnergyAvg / 45.0f).coerceIn(0.04f, 0.95f)
+        val periorbitalScore = (crowEnergyAvg / 32.0f).coerceIn(0.04f, 0.95f)
 
         // 4. Cheek Skin Texture Roughness (Positioned directly on mid-cheek dermal zone)
         val cheekY = (minLumY + (fh * 0.12f).toInt()).coerceAtMost(fh - 10)
@@ -79,9 +80,18 @@ class BiometricAgeEstimator {
         val leftCheekVar = ConvolutionKernels.computeLuminanceVariance(faceBuffer, leftCheekX, cheekY, cheekW, cheekH)
         val rightCheekVar = ConvolutionKernels.computeLuminanceVariance(faceBuffer, rightCheekX, cheekY, cheekW, cheekH)
         val cheekVarianceAvg = (leftCheekVar + rightCheekVar) / 2f
-        val skinTextureRoughness = (cheekVarianceAvg / 600.0f).coerceIn(0.02f, 0.95f)
+        val skinTextureRoughness = (cheekVarianceAvg / 450.0f).coerceIn(0.02f, 0.95f)
 
-        // 5. Bilateral Facial Symmetry
+        // 5. Biological Consistency Check:
+        // A senior always exhibits elevated cheek roughness (> 0.35f) and pronounced crow's feet (> 0.35f).
+        // If cheek texture is smooth and periorbital lines are low, forehead texture is hair fringes (kahkül), NOT wrinkles!
+        val wrinkleScore = if (skinTextureRoughness < 0.25f && periorbitalScore < 0.35f) {
+            rawWrinkleScore.coerceAtMost(0.20f)
+        } else {
+            rawWrinkleScore
+        }
+
+        // 6. Bilateral Facial Symmetry
         val midX = fw / 2
         var symDiff = 0f
         var symCount = 0
@@ -101,21 +111,22 @@ class BiometricAgeEstimator {
             0.85f
         }
 
-        // 6. Scientifically Grounded Multi-Zone Biological Age Regression
+        // 7. Scientifically Grounded Multi-Zone Biological Age Regression
         // Based on Farkas Craniofacial Anthropometry & Multi-Zone Dermal Aging Models
         val effectiveAge = when {
             // Infant / Toddler (1 - 3 years old): unwrinkled, ultra-smooth baby skin or low eye-line ratio
-            (wrinkleScore < 0.16f && periorbitalScore < 0.22f) || (eyeHeightRatio < 0.38f && wrinkleScore < 0.24f) -> {
+            (wrinkleScore < 0.16f && periorbitalScore < 0.20f) || (eyeHeightRatio < 0.38f && wrinkleScore < 0.20f) -> {
                 val babyRatioFactor = if (eyeHeightRatio < 0.40f) 0.5f else 1.0f
                 (1.0f + (wrinkleScore / 0.16f) * 2.5f * babyRatioFactor).coerceIn(1.0f, 3.0f)
             }
             // Child (4 - 12 years old): smooth youthful skin without mature periorbital lines
-            wrinkleScore < 0.24f && periorbitalScore < 0.30f -> {
-                4.0f + ((wrinkleScore - 0.14f).coerceAtLeast(0f) / 0.10f) * 8.0f
+            wrinkleScore < 0.22f && periorbitalScore < 0.28f -> {
+                val childRatioFactor = if (eyeHeightRatio < 0.46f) 0.85f else 1.0f
+                (5.0f + ((wrinkleScore - 0.10f).coerceAtLeast(0f) / 0.12f) * 6.0f) * childRatioFactor
             }
             // Teenager (13 - 17 years old): transitional minor
             wrinkleScore < 0.28f && periorbitalScore < 0.34f -> {
-                13.0f + ((wrinkleScore - 0.24f).coerceAtLeast(0f) / 0.04f) * 4.0f
+                13.0f + ((wrinkleScore - 0.22f).coerceAtLeast(0f) / 0.06f) * 4.0f
             }
             // Young Adult (18 - 29 years old): mature eye ratio, minimal resting wrinkles
             wrinkleScore < 0.40f -> {
@@ -129,9 +140,9 @@ class BiometricAgeEstimator {
             wrinkleScore < 0.78f -> {
                 46.0f + ((wrinkleScore - 0.58f) / 0.20f) * 14.0f + (skinTextureRoughness * 4.0f)
             }
-            // Senior (63 - 85 years old): prominent deep facial furrows and crow's feet
+            // Senior (63 - 85 years old): prominent deep facial furrows, crow's feet and dermal roughness
             else -> {
-                62.0f + ((wrinkleScore - 0.78f) / 0.22f) * 18.0f + (periorbitalScore * 5.0f)
+                62.0f + ((wrinkleScore - 0.78f) / 0.22f) * 18.0f + (periorbitalScore * 5.0f) + (skinTextureRoughness * 5.0f)
             }
         }
 

@@ -2,10 +2,13 @@ package com.vahitkeskin.agetrace.data.cv
 
 import com.vahitkeskin.agetrace.domain.model.PixelBuffer
 import kotlin.math.abs
+import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
  * Image processing convolution filters for gradient and edge analysis.
+ * Calibrated to biological dermal limits: caps extreme non-biological step changes
+ * (such as dark hair fringes/bangs across light skin) from distorting wrinkle scores.
  */
 object ConvolutionKernels {
 
@@ -15,7 +18,7 @@ object ConvolutionKernels {
      * [ 0  0  0]
      * [ 1  2  1]
      * Horizontal gradients respond strongly to horizontal forehead wrinkles and expression lines.
-     * Capped to dermal wrinkle limits (42f) and excludes non-skin hair (< 65f) or glare (> 235f).
+     * Capped to dermal wrinkle limits (32f) so dark hair strands (kahkül) cannot blow up wrinkle density.
      */
     fun computeHorizontalSobelMagnitude(
         buffer: PixelBuffer,
@@ -30,11 +33,12 @@ object ConvolutionKernels {
         for (y in (startY + 1) until (startY + height - 1)) {
             for (x in (startX + 1) until (startX + width - 1)) {
                 val centerLum = buffer.luminance(x, y)
-                // Filter out non-skin pixels: pitch black background or deep hair (< 50f)
-                if (centerLum > 50f) {
+                // Filter out non-skin pixels: pitch black background or deep hair (< 55f)
+                if (centerLum > 55f) {
                     val top = -1f * buffer.luminance(x - 1, y - 1) - 2f * buffer.luminance(x, y - 1) - 1f * buffer.luminance(x + 1, y - 1)
                     val bottom = 1f * buffer.luminance(x - 1, y + 1) + 2f * buffer.luminance(x, y + 1) + 1f * buffer.luminance(x + 1, y + 1)
-                    val dy = abs(top + bottom)
+                    // Cap to biological wrinkle depth (32f): real human wrinkles never exhibit 200+ step changes
+                    val dy = min(32f, abs(top + bottom) / 4f)
                     totalMagnitude += dy
                     count++
                 }
@@ -46,6 +50,7 @@ object ConvolutionKernels {
 
     /**
      * Computes 2D edge magnitude (Sobel X + Sobel Y) to detect micro-texture and fine lines.
+     * Capped per pixel to prevent hair curls from spoofing eye crow's feet.
      */
     fun computeEdgeGradientEnergy(
         buffer: PixelBuffer,
@@ -60,18 +65,18 @@ object ConvolutionKernels {
         for (y in (startY + 1) until (startY + height - 1)) {
             for (x in (startX + 1) until (startX + width - 1)) {
                 val centerLum = buffer.luminance(x, y)
-                if (centerLum > 50f) {
+                if (centerLum > 55f) {
                     // Sobel X
                     val left = -1f * buffer.luminance(x - 1, y - 1) - 2f * buffer.luminance(x - 1, y) - 1f * buffer.luminance(x - 1, y + 1)
                     val right = 1f * buffer.luminance(x + 1, y - 1) + 2f * buffer.luminance(x + 1, y) + 1f * buffer.luminance(x + 1, y + 1)
-                    val dx = left + right
+                    val dx = (left + right) / 4f
 
                     // Sobel Y
                     val top = -1f * buffer.luminance(x - 1, y - 1) - 2f * buffer.luminance(x, y - 1) - 1f * buffer.luminance(x + 1, y - 1)
                     val bottom = 1f * buffer.luminance(x - 1, y + 1) + 2f * buffer.luminance(x, y + 1) + 1f * buffer.luminance(x + 1, y + 1)
-                    val dy = top + bottom
+                    val dy = (top + bottom) / 4f
 
-                    val magnitude = sqrt(dx * dx + dy * dy)
+                    val magnitude = min(35f, sqrt(dx * dx + dy * dy))
                     totalEnergy += magnitude
                     count++
                 }
@@ -98,7 +103,7 @@ object ConvolutionKernels {
         for (y in startY until (startY + height)) {
             for (x in startX until (startX + width)) {
                 val lum = buffer.luminance(x, y)
-                if (lum > 50f) {
+                if (lum > 55f) {
                     sum += lum
                     sumSq += lum * lum
                     count++

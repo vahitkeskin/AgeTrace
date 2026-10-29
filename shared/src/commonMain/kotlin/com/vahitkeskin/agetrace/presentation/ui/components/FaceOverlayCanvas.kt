@@ -10,20 +10,14 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,22 +42,17 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.domain.model.DetectedFace
-import com.vahitkeskin.agetrace.presentation.theme.*
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * High-Accuracy Biometric Face Overlay.
- * Renders 4 smooth rounded-corner camera focus brackets (pure crisp white)
- * with a high-contrast floating badge positioned gracefully on the right edge
- * formatted as: "%96 - 25 Age".
+ * Polite, High-Accuracy Biometric Face Overlay.
+ * Renders 4 smooth rounded-corner camera focus brackets (crisp, delicate white)
+ * with a floating frosted glassmorphic age balloon above each face.
  */
 @Composable
 fun FaceOverlayCanvas(
@@ -80,7 +69,7 @@ fun FaceOverlayCanvas(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2200, easing = LinearEasing),
+            animation = tween(durationMillis = 2400, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "scan_y"
@@ -98,11 +87,10 @@ fun FaceOverlayCanvas(
             val renderedHPx = imageHeight * scale
             val offsetXPx = (containerWidthPx - renderedWPx) / 2f
             val offsetYPx = (containerHeightPx - renderedHPx) / 2f
-            val highestConfidenceFace = faces.maxByOrNull { it.confidencePercentage }
 
-            // 1. Canvas Layer: 4 Smooth Rounded Corner Brackets & Dynamic Scan Beam
+            // 1. Canvas Layer: 4 Smooth Rounded Corner Brackets & Dynamic Glass Scan Beam
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val strokeW = with(density) { 2.6.dp.toPx() }
+                val strokeW = with(density) { 1.8.dp.toPx() }
 
                 for (face in faces) {
                     val box = face.boundingBox
@@ -112,7 +100,7 @@ fun FaceOverlayCanvas(
                     val fh = box.normalizedHeight * renderedHPx
 
                     val isSelected = (face.id == selectedFace?.id)
-                    val bracketColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.95f)
+                    val bracketColor = if (isSelected) Color.White else Color(0xF0FFFFFF)
 
                     // 4 Smooth Rounded Corner Focus Brackets
                     val minDim = min(fw, fh).coerceAtLeast(10f)
@@ -184,32 +172,32 @@ fun FaceOverlayCanvas(
                     }
                     drawPath(blPath, bracketColor, style = strokeStyle)
 
-                    // Active Scanning Beam (Moving smoothly across face area)
+                    // Polite Laser Scan Beam
                     if (isScanning) {
                         val scanY = fy + (fh * scanProgress)
                         // Gradient glow under scan line
                         drawRect(
                             brush = Brush.verticalGradient(
-                                colors = listOf(Color(0x0038BDF8), Color(0x2838BDF8), Color(0x0038BDF8)),
-                                startY = scanY - 30f,
-                                endY = scanY + 10f
+                                colors = listOf(Color(0x0038BDF8), Color(0x2238BDF8), Color(0x0038BDF8)),
+                                startY = scanY - 24f,
+                                endY = scanY + 8f
                             ),
-                            topLeft = Offset(fx, scanY - 30f),
-                            size = Size(fw, 40f)
+                            topLeft = Offset(fx, scanY - 24f),
+                            size = Size(fw, 32f)
                         )
                         // Laser scan line
                         drawLine(
-                            color = Color(0xE6FFFFFF),
+                            color = Color(0xF2FFFFFF),
                             start = Offset(fx + 4f, scanY),
                             end = Offset(fx + fw - 4f, scanY),
-                            strokeWidth = 2.2f,
+                            strokeWidth = 1.6f,
                             cap = StrokeCap.Round
                         )
                     }
                 }
             }
 
-            // 2. Interactive Face Area & Prominent Floating Badge on the Right (Pixel-Synchronized)
+            // 2. Interactive Face Area & Glassmorphic Floating Speech Balloon
             for (face in faces) {
                 val box = face.boundingBox
                 val fxPx = offsetXPx + box.normalizedX * renderedWPx
@@ -217,12 +205,10 @@ fun FaceOverlayCanvas(
                 val fwPx = box.normalizedWidth * renderedWPx
                 val fhPx = box.normalizedHeight * renderedHPx
 
-                val isHighestConfidence = (face.id == highestConfidenceFace?.id)
-
-                // Clickable Face Area (Using exact pixel offsets)
+                // Clickable Face Area
                 val fwDp = with(density) { fwPx.toDp() }
                 val fhDp = with(density) { fhPx.toDp() }
-                if (fwDp > 10.dp && fhDp > 10.dp) {
+                if (fwPx > 20f && fhPx > 20f) {
                     Box(
                         modifier = Modifier
                             .offset { IntOffset(fxPx.roundToInt(), fyPx.roundToInt()) }
@@ -231,42 +217,39 @@ fun FaceOverlayCanvas(
                     )
                 }
 
-                // Dedicated Musixy/VKControl-Style Speech Balloon placed cleanly ABOVE the face box
+                // Frosted Glassmorphic Speech Balloon placed gracefully ABOVE the face box
                 val isSelected = (face.id == selectedFace?.id)
 
-                // Balloon Width: Ensure minimum 62dp so text always has plenty of breathing room, scaled with face box
-                val balloonWidthDp = max(fwDp * 0.92f, 62.dp).coerceAtMost(104.dp)
-                val balloonWidthPx = with(density) { balloonWidthDp.toPx() }
+                val minBalloonWPx = with(density) { 64.dp.toPx() }
+                val maxBalloonWPx = with(density) { 100.dp.toPx() }
+                val balloonWidthPx = (fwPx * 0.90f).coerceIn(minBalloonWPx, maxBalloonWPx)
+                val balloonWidthDp = with(density) { balloonWidthPx.toDp() }
 
-                // Centering balloon above the face box
                 val faceCenterX = fxPx + fwPx / 2f
                 val balloonXPx = (faceCenterX - balloonWidthPx / 2f).coerceIn(
                     0f,
                     (containerWidthPx - balloonWidthPx).coerceAtLeast(0f)
                 )
 
-                // Arrow dimensions & corner radius
-                val cornerRadiusDp = if (balloonWidthDp < 48.dp) 5.dp else 7.dp
+                val thresholdWPx = with(density) { 48.dp.toPx() }
+                val cornerRadiusDp = if (balloonWidthPx < thresholdWPx) 6.dp else 8.dp
                 val cornerRadiusPx = with(density) { cornerRadiusDp.toPx() }
-                val arrowWidthDp = if (balloonWidthDp < 48.dp) 8.dp else 10.dp
+                val arrowWidthDp = if (balloonWidthPx < thresholdWPx) 8.dp else 10.dp
                 val arrowWidthPx = with(density) { arrowWidthDp.toPx() }
-                val arrowHeightDp = 4.5.dp
+                val arrowHeightDp = 4.dp
                 val arrowHeightPx = with(density) { arrowHeightDp.toPx() }
 
-                // Pointer arrow dynamically aims directly at the horizontal center of the face box
                 val arrowXPx = (faceCenterX - balloonXPx).coerceIn(
                     cornerRadiusPx + arrowWidthPx / 2f,
                     (balloonWidthPx - cornerRadiusPx - arrowWidthPx / 2f).coerceAtLeast(cornerRadiusPx + arrowWidthPx / 2f)
                 )
 
-                // Layout determination: Focused exclusively on Age without percentage
                 val balloonHeightDp = 26.dp
                 val balloonHeightPx = with(density) { balloonHeightDp.toPx() }
 
-                // Position: 2dp clean separation above the face bracket so nothing is crushed or obscured
-                val balloonSpacingPx = with(density) { 2.dp.toPx() }
+                val balloonSpacingPx = with(density) { 3.dp.toPx() }
                 val hasRoomAbove = (fyPx >= balloonHeightPx + balloonSpacingPx + 2f)
-                val isBelow = !hasRoomAbove // If above, arrow is at bottom pointing down (isBelow = false)
+                val isBelow = !hasRoomAbove
                 val balloonYPx = if (hasRoomAbove) {
                     fyPx - balloonHeightPx - balloonSpacingPx
                 } else {
@@ -291,27 +274,31 @@ fun FaceOverlayCanvas(
                         .width(balloonWidthDp)
                         .height(balloonHeightDp)
                         .shadow(
-                            elevation = if (isSelected) 10.dp else 5.dp,
+                            elevation = if (isSelected) 8.dp else 4.dp,
                             shape = balloonShape,
                             spotColor = if (isSelected) Color(0xFF38BDF8) else Color.Black
                         )
                         .background(
                             brush = Brush.verticalGradient(
-                                listOf(Color(0xFF1E293B), Color(0xFF0F172A))
+                                listOf(
+                                    Color(0xE61E293B),
+                                    Color(0xB30F172A)
+                                )
                             ),
                             shape = balloonShape
                         )
                         .border(
                             width = if (isSelected) 1.5.dp else 1.dp,
                             brush = if (isSelected) {
-                                Brush.linearGradient(
-                                    listOf(Color(0xFF38BDF8), Color(0xFF818CF8))
+                                Brush.verticalGradient(
+                                    listOf(Color(0xFF38BDF8), Color(0x66818CF8))
                                 )
                             } else {
-                                Brush.linearGradient(
+                                Brush.verticalGradient(
                                     listOf(
-                                        Color(0xFF2DD4BF).copy(alpha = 0.7f),
-                                        Color(0xFF6366F1).copy(alpha = 0.6f)
+                                        Color(0x80FFFFFF),
+                                        Color(0x2638BDF8),
+                                        Color(0x14FFFFFF)
                                     )
                                 )
                             },
@@ -335,7 +322,6 @@ fun FaceOverlayCanvas(
                         val availHPx = constraints.maxHeight.toFloat()
                         val ageText = "${face.estimatedAge} Age"
 
-                        // Automatically adapt font size step-by-step to fit balloon bounds perfectly with safety margin
                         val dynFontSize = remember(ageText, availWPx, availHPx) {
                             val safeW = (availWPx - 4f).coerceAtLeast(10f)
                             val safeH = (availHPx - 4f).coerceAtLeast(10f)

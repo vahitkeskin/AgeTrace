@@ -4,17 +4,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.vahitkeskin.agetrace.presentation.theme.AccentBlue
 import com.vahitkeskin.agetrace.presentation.theme.BackgroundDark
-import com.vahitkeskin.agetrace.presentation.theme.NeonRed
 import com.vahitkeskin.agetrace.presentation.theme.SurfaceCard
 import com.vahitkeskin.agetrace.presentation.theme.SurfaceDark
 import com.vahitkeskin.agetrace.presentation.ui.AgeTraceScreen
 
 private val AgeTraceDarkColors = darkColorScheme(
-    primary = NeonRed,
+    primary = AccentBlue,
     onPrimary = Color.White,
-    primaryContainer = Color(0x33FF1744),
-    onPrimaryContainer = NeonRed,
+    primaryContainer = Color(0x2E38BDF8),
+    onPrimaryContainer = AccentBlue,
     surface = SurfaceDark,
     onSurface = Color.White,
     surfaceVariant = SurfaceCard,

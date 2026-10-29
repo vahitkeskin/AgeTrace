@@ -31,17 +31,28 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.data.platform.PlatformImageBridge
 import com.vahitkeskin.agetrace.domain.model.BoundingBox
 import com.vahitkeskin.agetrace.domain.model.DetectedFace
 import com.vahitkeskin.agetrace.domain.model.PixelBuffer
+import com.vahitkeskin.agetrace.presentation.theme.AccentBlue
+import com.vahitkeskin.agetrace.presentation.theme.AdultColor
+import com.vahitkeskin.agetrace.presentation.theme.AdultColorBg
+import com.vahitkeskin.agetrace.presentation.theme.GlassBorder
+import com.vahitkeskin.agetrace.presentation.theme.GlassSpecularBorderBrush
+import com.vahitkeskin.agetrace.presentation.theme.GlassSpecularBorderBrushSelected
+import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicBadge
+import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicCard
+import com.vahitkeskin.agetrace.presentation.theme.MinorColor
+import com.vahitkeskin.agetrace.presentation.theme.MinorColorBg
+import com.vahitkeskin.agetrace.presentation.theme.TextMuted
+import com.vahitkeskin.agetrace.presentation.theme.TextPrimary
+import com.vahitkeskin.agetrace.presentation.theme.TextSecondary
 
 /**
- * Prominent horizontal strip displaying cropped head portraits of all detected people
- * with their exact "%Confidence - Age" label immediately below each avatar.
+ * Polite, refined horizontal strip of detected face cards encased in authentic frosted glassmorphic styling.
  */
 @Composable
 fun DetectedFaceAvatarsStrip(
@@ -53,175 +64,198 @@ fun DetectedFaceAvatarsStrip(
 ) {
     if (faces.isEmpty() || pixelBuffer == null) return
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F172A).copy(alpha = 0.95f),
-                        Color(0xFF1E293B).copy(alpha = 0.85f)
-                    )
-                )
-            )
-            .border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+    GlassmorphicCard(
+        modifier = modifier.fillMaxWidth(),
+        cornerRadius = 18.dp,
+        borderBrush = GlassSpecularBorderBrush
     ) {
-        // Section Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Header: Title & Count indicator
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF38BDF8))
-                )
-                Text(
-                    text = "Tespit Edilen Kişiler (${faces.size})",
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.3.sp
-                )
-            }
-        }
-
-        // Horizontal Row of Head Avatars with Age Info
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
-        ) {
-            items(faces, key = { it.id }) { face ->
-                val isSelected = (face.id == selectedFace?.id)
-                val themeColor = if (face.classification.isAdult) Color(0xFFEF4444) else Color(0xFF10B981)
-
-                // Memoize cropped head image bitmap safely
-                val headBitmap = remember(face.id, pixelBuffer) {
-                    try {
-                        val box = face.boundingBox
-                        val padX = box.normalizedWidth * 0.16f
-                        val padTop = box.normalizedHeight * 0.22f
-                        val padBottom = box.normalizedHeight * 0.10f
-
-                        val left = (box.normalizedX - padX).coerceIn(0f, 0.96f)
-                        val top = (box.normalizedY - padTop).coerceIn(0f, 0.96f)
-                        val right = (box.normalizedX + box.normalizedWidth + padX).coerceIn(left + 0.04f, 1f)
-                        val bottom = (box.normalizedY + box.normalizedHeight + padBottom).coerceIn(top + 0.04f, 1f)
-
-                        val headBox = BoundingBox(
-                            normalizedX = left,
-                            normalizedY = top,
-                            normalizedWidth = right - left,
-                            normalizedHeight = bottom - top
-                        )
-                        val sub = pixelBuffer.subBuffer(headBox)
-                        PlatformImageBridge.pixelBufferToImageBitmap(sub)
-                    } catch (t: Throwable) {
-                        null
-                    }
-                }
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .width(120.dp)
-                        .shadow(
-                            elevation = if (isSelected) 8.dp else 2.dp,
-                            shape = RoundedCornerShape(14.dp),
-                            spotColor = if (isSelected) themeColor else Color.Black
-                        )
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(
-                            if (isSelected) themeColor.copy(alpha = 0.16f) else Color(0xFF0F172A).copy(alpha = 0.7f)
-                        )
-                        .border(
-                            width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) themeColor else Color(0xFF334155),
-                            shape = RoundedCornerShape(14.dp)
-                        )
-                        .clickable { onFaceClick(face) }
-                        .padding(horizontal = 4.dp, vertical = 8.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Head Crop Avatar Frame
                     Box(
                         modifier = Modifier
-                            .size(70.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF0B1120))
-                            .border(1.dp, if (isSelected) themeColor.copy(alpha = 0.6f) else Color(0xFF1E293B), RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (headBitmap != null) {
-                            Image(
-                                bitmap = headBitmap,
-                                contentDescription = "Kişi Yüzü",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(AccentBlue)
+                    )
+                    Text(
+                        text = "Tespit Edilen Yüzler",
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.2.sp
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color(0x1AFFFFFF))
+                        .border(1.dp, Color(0x1FFFFFFF), RoundedCornerShape(999.dp))
+                        .padding(horizontal = 9.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "${faces.size} Kişi",
+                        color = AccentBlue,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            // Horizontal LazyRow of Frosted Face Cards
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(horizontal = 1.dp, vertical = 2.dp)
+            ) {
+                items(faces, key = { it.id }) { face ->
+                    val isSelected = (face.id == selectedFace?.id)
+                    val themeColor = if (face.classification.isAdult) AdultColor else MinorColor
+
+                    // Memoize cropped head image bitmap
+                    val headBitmap = remember(face.id, pixelBuffer) {
+                        try {
+                            val box = face.boundingBox
+                            val padX = box.normalizedWidth * 0.16f
+                            val padTop = box.normalizedHeight * 0.22f
+                            val padBottom = box.normalizedHeight * 0.10f
+
+                            val left = (box.normalizedX - padX).coerceIn(0f, 0.96f)
+                            val top = (box.normalizedY - padTop).coerceIn(0f, 0.96f)
+                            val right = (box.normalizedX + box.normalizedWidth + padX).coerceIn(left + 0.04f, 1f)
+                            val bottom = (box.normalizedY + box.normalizedHeight + padBottom).coerceIn(top + 0.04f, 1f)
+
+                            val headBox = BoundingBox(
+                                normalizedX = left,
+                                normalizedY = top,
+                                normalizedWidth = right - left,
+                                normalizedHeight = bottom - top
                             )
-                        } else {
-                            Text(
-                                text = "👤",
-                                fontSize = 28.sp
-                            )
+                            val sub = pixelBuffer.subBuffer(headBox)
+                            PlatformImageBridge.pixelBufferToImageBitmap(sub)
+                        } catch (t: Throwable) {
+                            null
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // "%Blabla - blabla Age" Label
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
+                    // Frosted Card for this face
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp)
+                            .width(116.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                brush = if (isSelected) {
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            AccentBlue.copy(alpha = 0.22f),
+                                            Color(0x660F172A)
+                                        )
+                                    )
+                                } else {
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            Color(0x38FFFFFF),
+                                            Color(0x1A162033),
+                                            Color(0x100D1424)
+                                        )
+                                    )
+                                }
+                            )
+                            .border(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                brush = if (isSelected) GlassSpecularBorderBrushSelected else GlassSpecularBorderBrush,
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .clickable { onFaceClick(face) }
+                            .padding(8.dp)
                     ) {
+                        // Head Crop Frame
                         Box(
                             modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(themeColor)
-                        )
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Text(
-                            text = "%${face.confidencePercentage} - ${face.estimatedAge} Age",
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
+                                .size(66.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF090D18))
+                                .border(
+                                    1.dp,
+                                    if (isSelected) AccentBlue.copy(alpha = 0.6f) else Color(0x22FFFFFF),
+                                    RoundedCornerShape(12.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (headBitmap != null) {
+                                Image(
+                                    bitmap = headBitmap,
+                                    contentDescription = "Yüz",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Text(
+                                    text = "👤",
+                                    fontSize = 24.sp
+                                )
+                            }
+                        }
 
-                    Spacer(modifier = Modifier.height(5.dp))
+                        Spacer(modifier = Modifier.height(7.dp))
 
-                    // Minor / Adult Tag (High-contrast, crystal clear badge)
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (face.classification.isAdult) Color(0x33EF4444) else Color(0x3310B981))
-                            .border(
-                                width = 1.dp,
-                                color = if (face.classification.isAdult) Color(0x80EF4444) else Color(0x8010B981),
-                                shape = RoundedCornerShape(6.dp)
+                        // "%Confidence • Age" Info Pill
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(5.dp)
+                                    .clip(CircleShape)
+                                    .background(themeColor)
                             )
-                            .padding(horizontal = 8.dp, vertical = 2.5.dp)
-                    ) {
-                        Text(
-                            text = if (face.classification.isAdult) "Yetişkin" else "Reşit Değil",
-                            color = if (face.classification.isAdult) Color(0xFFFCA5A5) else Color(0xFF6EE7B7),
-                            fontSize = 9.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = "%${face.confidencePercentage} • ${face.estimatedAge} Yaş",
+                                color = TextPrimary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(5.dp))
+
+                        // Classification Badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(if (face.classification.isAdult) AdultColorBg else MinorColorBg)
+                                .border(
+                                    width = 1.dp,
+                                    color = if (face.classification.isAdult) AdultColor.copy(alpha = 0.45f) else MinorColor.copy(alpha = 0.45f),
+                                    shape = RoundedCornerShape(999.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 2.5.dp)
+                        ) {
+                            Text(
+                                text = if (face.classification.isAdult) "Yetişkin" else "Reşit Değil",
+                                color = themeColor,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }
