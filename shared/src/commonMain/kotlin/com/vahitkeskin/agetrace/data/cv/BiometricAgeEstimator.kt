@@ -82,17 +82,51 @@ class BiometricAgeEstimator {
         val cheekVarianceAvg = (leftCheekVar + rightCheekVar) / 2f
         val skinTextureRoughness = (cheekVarianceAvg / 450.0f).coerceIn(0.02f, 0.95f)
 
-        // 5. Biological Consistency Check:
-        // A senior always exhibits elevated cheek roughness (> 0.35f) and pronounced crow's feet (> 0.35f).
-        // If periorbital lines are low (< 0.32f) or craniofacial eye ratio indicates youth (< 0.44f),
-        // forehead texture is hair fringes (kahkül), NOT wrinkles!
-        val wrinkleScore = if (periorbitalScore < 0.32f || (eyeHeightRatio < 0.44f && skinTextureRoughness < 0.45f)) {
-            rawWrinkleScore.coerceAtMost(0.19f)
+        // 5. Lower-Face Maturity & Facial Hair Detection (Beards, Mustaches & Chin Contrast)
+        // Biological Fact: Prepubescent children (< 14) never have dark beard stubble or mustaches.
+        val chinZoneY = (fh * 0.68f).toInt().coerceAtMost(fh - 10)
+        val chinZoneH = (fh * 0.26f).toInt().coerceAtLeast(3)
+        val chinZoneX = (fw * 0.25f).toInt()
+        val chinZoneW = (fw * 0.50f).toInt().coerceAtLeast(3)
+
+        var foreheadLumSum = 0f
+        var foreheadPixels = 0
+        for (y in foreheadY until (foreheadY + foreheadH)) {
+            for (x in foreheadX until (foreheadX + foreheadW)) {
+                foreheadLumSum += faceBuffer.luminance(x, y)
+                foreheadPixels++
+            }
+        }
+        val avgForeheadLum = if (foreheadPixels > 0) foreheadLumSum / foreheadPixels else 128f
+
+        var chinLumSum = 0f
+        var chinPixels = 0
+        for (y in chinZoneY until (chinZoneY + chinZoneH)) {
+            for (x in chinZoneX until (chinZoneX + chinZoneW)) {
+                chinLumSum += faceBuffer.luminance(x, y)
+                chinPixels++
+            }
+        }
+        val avgChinLum = if (chinPixels > 0) chinLumSum / chinPixels else 128f
+        val beardRatio = avgChinLum / avgForeheadLum.coerceAtLeast(1f)
+
+        val chinEnergy = ConvolutionKernels.computeEdgeGradientEnergy(
+            faceBuffer, chinZoneX, chinZoneY, chinZoneW, chinZoneH
+        )
+        val chinRoughness = (chinEnergy / 28.0f).coerceIn(0.02f, 0.95f)
+
+        val hasFacialHair = (beardRatio < 0.82f && chinRoughness > 0.16f) || (beardRatio < 0.70f)
+
+        // 6. Biological Consistency Check:
+        // Forehead fringes (kahkül) can create artificial high-frequency edges on infants/children.
+        // Only clamp when craniofacial eye ratio indicates true childhood (< 0.38f) and no facial hair exists.
+        val wrinkleScore = if (eyeHeightRatio < 0.38f && periorbitalScore < 0.25f && !hasFacialHair) {
+            rawWrinkleScore.coerceAtMost(0.18f)
         } else {
             rawWrinkleScore
         }
 
-        // 6. Bilateral Facial Symmetry
+        // 7. Bilateral Facial Symmetry
         val midX = fw / 2
         var symDiff = 0f
         var symCount = 0
@@ -112,38 +146,47 @@ class BiometricAgeEstimator {
             0.85f
         }
 
-        // 7. Scientifically Grounded Multi-Zone Biological Age Regression
+        // 8. Scientifically Grounded Multi-Zone Biological Age Regression
         // Based on Farkas Craniofacial Anthropometry & Multi-Zone Dermal Aging Models
         val effectiveAge = when {
-            // Infant / Toddler (1 - 3 years old): unwrinkled, ultra-smooth baby skin or low eye-line ratio
-            (wrinkleScore < 0.16f && periorbitalScore < 0.20f) || (eyeHeightRatio < 0.38f && wrinkleScore < 0.20f) -> {
-                val babyRatioFactor = if (eyeHeightRatio < 0.40f) 0.5f else 1.0f
-                (1.0f + (wrinkleScore / 0.16f) * 2.5f * babyRatioFactor).coerceIn(1.0f, 3.0f)
+            // Adult male with facial hair (beard/mustache): Never an infant, child or minor!
+            hasFacialHair -> {
+                when {
+                    wrinkleScore < 0.30f -> 26.0f + ((wrinkleScore - 0.10f).coerceAtLeast(0f) / 0.20f) * 6.0f // 26 - 32
+                    wrinkleScore < 0.55f -> 33.0f + ((wrinkleScore - 0.30f) / 0.25f) * 12.0f // 33 - 45
+                    wrinkleScore < 0.75f -> 46.0f + ((wrinkleScore - 0.55f) / 0.20f) * 16.0f // 46 - 62
+                    else -> 63.0f + ((wrinkleScore - 0.75f) / 0.25f) * 20.0f // 63 - 83
+                }
             }
-            // Child (4 - 12 years old): smooth youthful skin without mature periorbital lines
-            wrinkleScore < 0.22f && periorbitalScore < 0.28f -> {
-                val childRatioFactor = if (eyeHeightRatio < 0.46f) 0.85f else 1.0f
-                (5.0f + ((wrinkleScore - 0.10f).coerceAtLeast(0f) / 0.12f) * 6.0f) * childRatioFactor
+            // Infant / Toddler (1 - 3 years old): unwrinkled, ultra-smooth baby skin and low eye-line ratio
+            !hasFacialHair && (eyeHeightRatio < 0.38f && wrinkleScore < 0.20f && periorbitalScore < 0.20f) -> {
+                val babyRatioFactor = if (eyeHeightRatio < 0.36f) 0.6f else 1.0f
+                (1.0f + (wrinkleScore / 0.20f) * 2.0f * babyRatioFactor).coerceIn(1.0f, 3.0f)
+            }
+            // Child (4 - 12 years old): smooth youthful skin, low craniofacial ratio, no facial hair
+            !hasFacialHair && eyeHeightRatio < 0.42f && wrinkleScore < 0.25f && periorbitalScore < 0.26f -> {
+                val childRatioFactor = if (eyeHeightRatio < 0.40f) 0.85f else 1.0f
+                (5.0f + ((wrinkleScore - 0.08f).coerceAtLeast(0f) / 0.17f) * 6.0f) * childRatioFactor
             }
             // Teenager (13 - 17 years old): transitional minor
-            wrinkleScore < 0.28f && periorbitalScore < 0.34f -> {
-                13.0f + ((wrinkleScore - 0.22f).coerceAtLeast(0f) / 0.06f) * 4.0f
+            !hasFacialHair && eyeHeightRatio < 0.43f && wrinkleScore < 0.28f && periorbitalScore < 0.30f -> {
+                13.0f + ((wrinkleScore - 0.20f).coerceAtLeast(0f) / 0.08f) * 4.0f
             }
             // Young Adult (18 - 29 years old): mature eye ratio, minimal resting wrinkles
-            wrinkleScore < 0.40f -> {
-                18.0f + ((wrinkleScore - 0.26f).coerceAtLeast(0f) / 0.14f) * 11.0f + (skinTextureRoughness * 2.0f)
+            wrinkleScore < 0.38f -> {
+                18.0f + ((wrinkleScore - 0.15f).coerceAtLeast(0f) / 0.23f) * 11.0f + (skinTextureRoughness * 2.0f)
             }
             // Adult (30 - 45 years old): early expression and periorbital lines
             wrinkleScore < 0.58f -> {
-                30.0f + ((wrinkleScore - 0.40f) / 0.18f) * 14.0f + (periorbitalScore * 4.0f)
+                30.0f + ((wrinkleScore - 0.38f) / 0.20f) * 14.0f + (periorbitalScore * 4.0f)
             }
             // Mature (46 - 62 years old): noticeable forehead lines and dermal maturation
             wrinkleScore < 0.78f -> {
                 46.0f + ((wrinkleScore - 0.58f) / 0.20f) * 14.0f + (skinTextureRoughness * 4.0f)
             }
-            // Senior (63 - 85 years old): prominent deep facial furrows, crow's feet and dermal roughness
+            // Senior (63 - 88 years old): prominent deep facial furrows, crow's feet and dermal roughness
             else -> {
-                62.0f + ((wrinkleScore - 0.78f) / 0.22f) * 18.0f + (periorbitalScore * 5.0f) + (skinTextureRoughness * 5.0f)
+                63.0f + ((wrinkleScore - 0.78f) / 0.22f) * 18.0f + (periorbitalScore * 5.0f) + (skinTextureRoughness * 5.0f)
             }
         }
 

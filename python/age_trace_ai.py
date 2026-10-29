@@ -136,7 +136,29 @@ def calibrate_face_age(
                     sobel = cv2.Sobel(ch_patch, cv2.CV_64F, 1, 1, ksize=3)
                     cheek_roughness = float(np.mean(np.abs(sobel)))
 
-    # 3. Multimodal Biological Age Calibration
+    # 3. Facial Hair & Lower-Face Maturity (Beard, Mustache & Chin Texture)
+    # Biological Fact: Prepubescent children and minors (< 16) never have dark beard stubble,
+    # mustache contrast, or dense lower-face facial hair edges.
+    x1, y1 = max(0, int(bbox[0])), max(0, int(bbox[1]))
+    x2, y2 = min(iw, int(bbox[2])), min(ih, int(bbox[3]))
+    crop_bgr = cv_img[y1:y2, x1:x2]
+    beard_ratio = 1.0
+    has_facial_hair = False
+    if crop_bgr.size > 0:
+        ch, cw = crop_bgr.shape[:2]
+        if ch > 20 and cw > 20:
+            forehead_p = crop_bgr[int(ch * 0.08):int(ch * 0.25), int(cw * 0.3):int(cw * 0.7)]
+            chin_p = crop_bgr[int(ch * 0.70):int(ch * 0.95), int(cw * 0.25):int(cw * 0.75)]
+            f_lum = float(cv2.cvtColor(forehead_p, cv2.COLOR_BGR2GRAY).mean()) if forehead_p.size > 0 else 128.0
+            c_gray = cv2.cvtColor(chin_p, cv2.COLOR_BGR2GRAY) if chin_p.size > 0 else np.zeros((5,5), dtype=np.uint8)
+            c_lum = float(c_gray.mean())
+            beard_ratio = c_lum / max(1.0, f_lum)
+            c_sobel = cv2.Sobel(c_gray, cv2.CV_64F, 1, 1, ksize=3)
+            c_texture = float(np.mean(np.abs(c_sobel)))
+            if raw_gender == 1 and raw_age >= 34.0 and beard_ratio <= 0.82 and c_texture >= 7.5:
+                has_facial_hair = True
+
+    # 4. Multimodal Biological Age Calibration
     # -------------------------------------------------------------
     # TIER 1: Biological Infant / Baby (Ages 1 - 2)
     if raw_age <= 12.0 or (chin_rel_h <= 0.230 and eye_rel_y >= 0.44 and raw_age <= 28.0) or \
@@ -145,11 +167,12 @@ def calibrate_face_age(
         classification = "18- Minor"
 
     # TIER 2: Biological Children & Adolescents (Ages 3 - 17)
-    # Hallmarked by smooth dermal collagen (roughness <= 5.3) and child craniofacial ratio
-    elif (cheek_roughness <= 5.3 and (midface_ratio <= 0.94 or raw_age <= 28.0)) or \
-         (cheek_roughness <= 3.2 and raw_age <= 40.0) or \
-         (raw_age <= 31.5 and midface_ratio <= 0.96) or \
-         (raw_gender == 1 and raw_age <= 35.0 and midface_ratio <= 1.04 and chin_rel_h <= 0.275):
+    # Post-pubescent adult men with raw_age >= 35.0 or prominent facial hair are never children
+    elif not (raw_gender == 1 and (raw_age >= 35.0 or has_facial_hair)) and \
+         ((cheek_roughness <= 5.3 and (midface_ratio <= 0.94 or raw_age <= 28.0)) or \
+          (cheek_roughness <= 3.2 and raw_age <= 40.0) or \
+          (raw_age <= 31.5 and midface_ratio <= 0.96) or \
+          (raw_gender == 1 and raw_age <= 35.0 and midface_ratio <= 1.04 and chin_rel_h <= 0.275)):
         
         # Pre-teen boy (10 - 13)
         if raw_age <= 28.0 and chin_rel_h <= 0.245 and midface_ratio >= 0.94:
@@ -169,7 +192,7 @@ def calibrate_face_age(
             calibrated_age = 9
         elif cheek_roughness <= 3.2 and raw_age <= 40.0:
             calibrated_age = 9
-        elif raw_age <= 57.0 and midface_ratio <= 0.905 and chin_rel_h >= 0.28:
+        elif raw_gender == 0 and raw_age <= 57.0 and midface_ratio <= 0.905 and chin_rel_h >= 0.28:
             calibrated_age = 7
         elif midface_ratio >= 0.930 and raw_age <= 40.0:
             calibrated_age = 9
@@ -211,8 +234,12 @@ def calibrate_face_age(
         classification = "18+ Young Adult"
 
     # TIER 7: Adults (30 - 49)
-    elif raw_age >= 44.0 or cheek_roughness >= 8.3 or (raw_age >= 33.0 and midface_ratio >= 0.96):
-        calibrated_age = int(round(34.0 + (raw_age - 34.0) * 0.6))
+    elif raw_age >= 44.0 or cheek_roughness >= 8.3 or (raw_age >= 33.0 and midface_ratio >= 0.96) or \
+         (raw_gender == 1 and (has_facial_hair or (raw_age >= 35.0 and raw_age <= 50.0))):
+        if raw_gender == 1 and (has_facial_hair or 33.0 <= raw_age <= 42.0):
+            calibrated_age = int(round(raw_age))
+        else:
+            calibrated_age = int(round(34.0 + (raw_age - 34.0) * 0.6))
         calibrated_age = max(30, min(49, calibrated_age))
         classification = "18+ Adult"
 

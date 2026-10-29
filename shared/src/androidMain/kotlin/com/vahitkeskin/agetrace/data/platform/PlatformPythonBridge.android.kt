@@ -74,15 +74,31 @@ actual object PlatformPythonBridge {
             conn.outputStream.use { it.write(bytes) }
             if (conn.responseCode == 200) {
                 val response = conn.inputStream.bufferedReader().use { it.readText() }
-                android.util.Log.i("AgeTrace", "InsightFace response length: ${response.length}")
+                safeLogI("AgeTrace", "InsightFace response length: ${response.length}")
                 response
             } else {
-                android.util.Log.e("AgeTrace", "InsightFace HTTP ${conn.responseCode} on $urlStr")
+                safeLogE("AgeTrace", "InsightFace HTTP ${conn.responseCode} on $urlStr")
                 null
             }
         } catch (e: Exception) {
-            android.util.Log.e("AgeTrace", "Could not reach InsightFace on $urlStr: ${e.message}")
+            safeLogE("AgeTrace", "Could not reach InsightFace on $urlStr: ${e.message}")
             null
+        }
+    }
+
+    private fun safeLogI(tag: String, msg: String) {
+        try {
+            android.util.Log.i(tag, msg)
+        } catch (_: Throwable) {
+            println("[$tag] $msg")
+        }
+    }
+
+    private fun safeLogE(tag: String, msg: String) {
+        try {
+            android.util.Log.e(tag, msg)
+        } catch (_: Throwable) {
+            println("[$tag ERROR] $msg")
         }
     }
 }

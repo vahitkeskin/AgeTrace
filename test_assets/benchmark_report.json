@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-29 17:42:26",
+  "timestamp": "2026-10-29 18:43:45",
   "total_images_tested": 100,
   "total_issues_found": 0,
   "issues": [],
@@ -8,7 +8,7 @@
       "file": "test_01_baby_1yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 102.83684730529785,
+      "inference_time_ms": 114.06302452087402,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -24,7 +24,7 @@
       "file": "test_02_toddler_3yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 85.06917953491211,
+      "inference_time_ms": 76.52974128723145,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -40,7 +40,7 @@
       "file": "test_03_child_boy_7yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 101.0429859161377,
+      "inference_time_ms": 75.08206367492676,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -56,7 +56,7 @@
       "file": "test_04_child_girl_9yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 89.27273750305176,
+      "inference_time_ms": 75.26493072509766,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -72,7 +72,7 @@
       "file": "test_05_preteen_boy_12yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 73.96101951599121,
+      "inference_time_ms": 74.56612586975098,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -88,7 +88,7 @@
       "file": "test_06_teen_girl_15yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 73.95100593566895,
+      "inference_time_ms": 75.5460262298584,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -104,7 +104,7 @@
       "file": "test_07_young_woman_21yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.73280143737793,
+      "inference_time_ms": 75.36792755126953,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -120,7 +120,7 @@
       "file": "test_08_young_man_24yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 79.36406135559082,
+      "inference_time_ms": 88.75513076782227,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -136,7 +136,7 @@
       "file": "test_09_adult_woman_34yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 79.10704612731934,
+      "inference_time_ms": 75.6371021270752,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -152,7 +152,7 @@
       "file": "test_100_grand_crowd_twenty_diverse_people.jpg",
       "faces_detected": 20,
       "expected_faces": 20,
-      "inference_time_ms": 87.87679672241211,
+      "inference_time_ms": 87.42523193359375,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -180,10 +180,10 @@
         },
         {
           "face_idx": 4,
-          "age": 40,
+          "age": 44,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%91 - 40 Age",
+          "badge": "%91 - 44 Age",
           "confidence": 0.91
         },
         {
@@ -196,18 +196,18 @@
         },
         {
           "face_idx": 6,
-          "age": 37,
+          "age": 39,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%90 - 37 Age",
+          "badge": "%90 - 39 Age",
           "confidence": 0.9
         },
         {
           "face_idx": 7,
-          "age": 44,
+          "age": 49,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%90 - 44 Age",
+          "badge": "%90 - 49 Age",
           "confidence": 0.9
         },
         {
@@ -244,10 +244,10 @@
         },
         {
           "face_idx": 12,
-          "age": 40,
+          "age": 44,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%87 - 40 Age",
+          "badge": "%87 - 44 Age",
           "confidence": 0.87
         },
         {
@@ -320,7 +320,7 @@
       "file": "test_10_adult_man_42yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.53181457519531,
+      "inference_time_ms": 74.0671157836914,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -336,7 +336,7 @@
       "file": "test_11_mature_woman_52yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 78.63974571228027,
+      "inference_time_ms": 75.23488998413086,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -352,7 +352,7 @@
       "file": "test_12_mature_man_60yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 81.14385604858398,
+      "inference_time_ms": 75.65999031066895,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -368,7 +368,7 @@
       "file": "test_13_senior_woman_75.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.4989128112793,
+      "inference_time_ms": 74.7690200805664,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -384,7 +384,7 @@
       "file": "test_14_senior_man_85yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 80.19375801086426,
+      "inference_time_ms": 74.51391220092773,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -400,7 +400,7 @@
       "file": "test_15_centenarian_woman_100yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 74.67508316040039,
+      "inference_time_ms": 74.61690902709961,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -416,7 +416,7 @@
       "file": "test_16_duo_mother_toddler.jpg",
       "faces_detected": 2,
       "expected_faces": 2,
-      "inference_time_ms": 78.11999320983887,
+      "inference_time_ms": 78.52602005004883,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -440,7 +440,7 @@
       "file": "test_17_trio_three_generations.jpg",
       "faces_detected": 3,
       "expected_faces": 3,
-      "inference_time_ms": 78.51910591125488,
+      "inference_time_ms": 76.35903358459473,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -472,7 +472,7 @@
       "file": "test_18_family_five_people.jpg",
       "faces_detected": 5,
       "expected_faces": 5,
-      "inference_time_ms": 106.66513442993164,
+      "inference_time_ms": 78.14288139343262,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -484,10 +484,10 @@
         },
         {
           "face_idx": 2,
-          "age": 43,
+          "age": 49,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%90 - 43 Age",
+          "badge": "%90 - 49 Age",
           "confidence": 0.9
         },
         {
@@ -520,7 +520,7 @@
       "file": "test_19_classroom_ten_kids.jpg",
       "faces_detected": 11,
       "expected_faces": 10,
-      "inference_time_ms": 78.02796363830566,
+      "inference_time_ms": 75.83308219909668,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -616,7 +616,7 @@
       "file": "test_20_crowd_twenty_people.jpg",
       "faces_detected": 20,
       "expected_faces": 20,
-      "inference_time_ms": 87.26382255554199,
+      "inference_time_ms": 83.26888084411621,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -676,10 +676,10 @@
         },
         {
           "face_idx": 8,
-          "age": 42,
+          "age": 47,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%89 - 42 Age",
+          "badge": "%89 - 47 Age",
           "confidence": 0.89
         },
         {
@@ -784,7 +784,7 @@
       "file": "test_21_african_infant_1yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 76.91502571105957,
+      "inference_time_ms": 74.39208030700684,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -800,7 +800,7 @@
       "file": "test_22_african_toddler_boy_3yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.82998275756836,
+      "inference_time_ms": 74.55992698669434,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -816,7 +816,7 @@
       "file": "test_23_african_child_girl_7yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 76.59792900085449,
+      "inference_time_ms": 75.52719116210938,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -832,7 +832,7 @@
       "file": "test_24_african_child_boy_9yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 76.79295539855957,
+      "inference_time_ms": 84.89537239074707,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -848,7 +848,7 @@
       "file": "test_25_african_preteen_boy_12yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 76.6751766204834,
+      "inference_time_ms": 74.8589038848877,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -864,7 +864,7 @@
       "file": "test_26_african_teen_girl_16yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 76.78484916687012,
+      "inference_time_ms": 74.89395141601562,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -880,7 +880,7 @@
       "file": "test_27_african_young_woman_22yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 79.07986640930176,
+      "inference_time_ms": 74.98598098754883,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -896,7 +896,7 @@
       "file": "test_28_african_young_man_25yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.45280456542969,
+      "inference_time_ms": 73.88019561767578,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -912,7 +912,7 @@
       "file": "test_29_african_adult_woman_35yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 72.2658634185791,
+      "inference_time_ms": 72.28875160217285,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -928,7 +928,7 @@
       "file": "test_30_african_adult_man_43yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 71.55704498291016,
+      "inference_time_ms": 71.92802429199219,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -944,7 +944,7 @@
       "file": "test_31_african_mature_woman_56yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 71.4879035949707,
+      "inference_time_ms": 70.91021537780762,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -960,7 +960,7 @@
       "file": "test_32_african_senior_elder_78yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 74.64075088500977,
+      "inference_time_ms": 71.94709777832031,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -976,7 +976,7 @@
       "file": "test_33_asian_baby_girl_1yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.90579986572266,
+      "inference_time_ms": 75.17409324645996,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -992,7 +992,7 @@
       "file": "test_34_asian_toddler_boy_3yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 73.47774505615234,
+      "inference_time_ms": 71.02489471435547,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1008,7 +1008,7 @@
       "file": "test_35_asian_child_boy_7yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 95.60894966125488,
+      "inference_time_ms": 74.38421249389648,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1024,7 +1024,7 @@
       "file": "test_36_asian_child_girl_9yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 78.99808883666992,
+      "inference_time_ms": 73.18806648254395,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1040,7 +1040,7 @@
       "file": "test_37_asian_preteen_girl_12yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 83.48965644836426,
+      "inference_time_ms": 70.70302963256836,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1056,7 +1056,7 @@
       "file": "test_38_asian_teen_boy_16yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 81.41088485717773,
+      "inference_time_ms": 85.20221710205078,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1072,7 +1072,7 @@
       "file": "test_39_asian_young_woman_21yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 74.77879524230957,
+      "inference_time_ms": 90.6529426574707,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1088,7 +1088,7 @@
       "file": "test_40_asian_young_man_24yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 76.05504989624023,
+      "inference_time_ms": 70.38688659667969,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1104,7 +1104,7 @@
       "file": "test_41_asian_adult_woman_36yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 73.86207580566406,
+      "inference_time_ms": 71.80905342102051,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1120,7 +1120,7 @@
       "file": "test_42_asian_adult_man_44yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.75035095214844,
+      "inference_time_ms": 71.89702987670898,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1136,7 +1136,7 @@
       "file": "test_43_asian_mature_man_58yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 73.69589805603027,
+      "inference_time_ms": 71.23303413391113,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1152,7 +1152,7 @@
       "file": "test_44_asian_senior_woman_80yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 94.95711326599121,
+      "inference_time_ms": 70.79291343688965,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1168,7 +1168,7 @@
       "file": "test_45_arab_baby_boy_1yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 105.23104667663574,
+      "inference_time_ms": 74.7370719909668,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1184,7 +1184,7 @@
       "file": "test_46_arab_toddler_girl_3yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.2420425415039,
+      "inference_time_ms": 72.24202156066895,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1200,7 +1200,7 @@
       "file": "test_47_arab_child_boy_8yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.00004768371582,
+      "inference_time_ms": 73.70591163635254,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1216,7 +1216,7 @@
       "file": "test_48_arab_child_girl_9yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.35886764526367,
+      "inference_time_ms": 70.2521800994873,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1232,7 +1232,7 @@
       "file": "test_49_arab_preteen_boy_12yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.89602470397949,
+      "inference_time_ms": 72.18313217163086,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1248,7 +1248,7 @@
       "file": "test_50_arab_teen_girl_16yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 73.57382774353027,
+      "inference_time_ms": 73.36020469665527,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1264,7 +1264,7 @@
       "file": "test_51_arab_young_woman_22yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 73.75216484069824,
+      "inference_time_ms": 78.11903953552246,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1280,7 +1280,7 @@
       "file": "test_52_arab_young_man_25yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 92.53311157226562,
+      "inference_time_ms": 70.8308219909668,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1296,7 +1296,7 @@
       "file": "test_53_arab_adult_woman_37yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 74.11694526672363,
+      "inference_time_ms": 71.68698310852051,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1312,7 +1312,7 @@
       "file": "test_54_arab_adult_man_45yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 74.30505752563477,
+      "inference_time_ms": 71.55823707580566,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1328,7 +1328,7 @@
       "file": "test_55_arab_mature_woman_55yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 74.06067848205566,
+      "inference_time_ms": 73.2889175415039,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1344,7 +1344,7 @@
       "file": "test_56_arab_senior_man_82yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.59800148010254,
+      "inference_time_ms": 70.73593139648438,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1360,7 +1360,7 @@
       "file": "test_57_russian_baby_girl_1yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 73.87304306030273,
+      "inference_time_ms": 70.7540512084961,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1376,7 +1376,7 @@
       "file": "test_58_russian_toddler_boy_4yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 72.4339485168457,
+      "inference_time_ms": 71.20418548583984,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1392,7 +1392,7 @@
       "file": "test_59_russian_child_boy_7yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.33988761901855,
+      "inference_time_ms": 74.60808753967285,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1408,7 +1408,7 @@
       "file": "test_60_russian_child_girl_9yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 76.36499404907227,
+      "inference_time_ms": 70.85680961608887,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1424,7 +1424,7 @@
       "file": "test_61_russian_preteen_boy_12yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.52719116210938,
+      "inference_time_ms": 71.05398178100586,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1440,7 +1440,7 @@
       "file": "test_62_russian_teen_girl_15yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.84714889526367,
+      "inference_time_ms": 71.79903984069824,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1456,7 +1456,7 @@
       "file": "test_63_russian_young_woman_21yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.89325714111328,
+      "inference_time_ms": 71.18487358093262,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1472,7 +1472,7 @@
       "file": "test_64_russian_young_man_24yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.69584655761719,
+      "inference_time_ms": 71.53511047363281,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1488,7 +1488,7 @@
       "file": "test_65_russian_adult_woman_34yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 74.2790699005127,
+      "inference_time_ms": 74.83482360839844,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1504,7 +1504,7 @@
       "file": "test_66_russian_adult_man_42yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 74.2490291595459,
+      "inference_time_ms": 72.64089584350586,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1520,7 +1520,7 @@
       "file": "test_67_russian_mature_woman_54yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 76.70974731445312,
+      "inference_time_ms": 70.9981918334961,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1536,7 +1536,7 @@
       "file": "test_68_russian_senior_man_76yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.56581497192383,
+      "inference_time_ms": 72.36409187316895,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1552,7 +1552,7 @@
       "file": "test_69_indian_toddler_girl_3yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.20589637756348,
+      "inference_time_ms": 70.57380676269531,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1568,7 +1568,7 @@
       "file": "test_70_indian_child_boy_8yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 96.47798538208008,
+      "inference_time_ms": 70.96695899963379,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1584,7 +1584,7 @@
       "file": "test_71_indian_preteen_girl_11yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.3931999206543,
+      "inference_time_ms": 71.46406173706055,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1600,7 +1600,7 @@
       "file": "test_72_indian_teen_boy_16yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.19302177429199,
+      "inference_time_ms": 72.25298881530762,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1616,7 +1616,7 @@
       "file": "test_73_indian_young_woman_23yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 76.44271850585938,
+      "inference_time_ms": 69.96798515319824,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1632,7 +1632,7 @@
       "file": "test_74_indian_young_man_26yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.99377632141113,
+      "inference_time_ms": 70.51801681518555,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1648,7 +1648,7 @@
       "file": "test_75_indian_adult_woman_38yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.07500457763672,
+      "inference_time_ms": 71.08807563781738,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1664,7 +1664,7 @@
       "file": "test_76_indian_adult_man_46yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 78.60302925109863,
+      "inference_time_ms": 71.75993919372559,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1680,7 +1680,7 @@
       "file": "test_77_indian_mature_man_58yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.84404945373535,
+      "inference_time_ms": 73.94099235534668,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1696,7 +1696,7 @@
       "file": "test_78_indian_senior_woman_78yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.23989677429199,
+      "inference_time_ms": 76.24197006225586,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1712,7 +1712,7 @@
       "file": "test_79_latino_toddler_boy_3yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 74.38802719116211,
+      "inference_time_ms": 70.83010673522949,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1728,7 +1728,7 @@
       "file": "test_80_latino_child_girl_8yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 73.39310646057129,
+      "inference_time_ms": 71.26975059509277,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1744,7 +1744,7 @@
       "file": "test_81_latino_preteen_boy_12yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 76.00712776184082,
+      "inference_time_ms": 70.31583786010742,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1760,7 +1760,7 @@
       "file": "test_82_latino_teen_girl_16yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.23808288574219,
+      "inference_time_ms": 71.36011123657227,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1776,7 +1776,7 @@
       "file": "test_83_latino_young_woman_22yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 109.54499244689941,
+      "inference_time_ms": 73.58479499816895,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1792,7 +1792,7 @@
       "file": "test_84_latino_young_man_25yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.54683494567871,
+      "inference_time_ms": 73.33898544311523,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1808,7 +1808,7 @@
       "file": "test_85_latino_adult_woman_35yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.28981971740723,
+      "inference_time_ms": 89.96105194091797,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1824,7 +1824,7 @@
       "file": "test_86_latino_adult_man_44yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.21319389343262,
+      "inference_time_ms": 73.20094108581543,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1840,7 +1840,7 @@
       "file": "test_87_latino_mature_woman_56yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 77.78811454772949,
+      "inference_time_ms": 75.71697235107422,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1856,7 +1856,7 @@
       "file": "test_88_latino_senior_man_80yo.jpg",
       "faces_detected": 1,
       "expected_faces": 1,
-      "inference_time_ms": 75.79708099365234,
+      "inference_time_ms": 71.39301300048828,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1872,7 +1872,7 @@
       "file": "test_89_duo_multiracial_friends.jpg",
       "faces_detected": 2,
       "expected_faces": 2,
-      "inference_time_ms": 81.19082450866699,
+      "inference_time_ms": 70.72782516479492,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1896,7 +1896,7 @@
       "file": "test_90_duo_mixed_father_son.jpg",
       "faces_detected": 2,
       "expected_faces": 2,
-      "inference_time_ms": 77.2848129272461,
+      "inference_time_ms": 68.22896003723145,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1920,7 +1920,7 @@
       "file": "test_91_trio_diverse_university_students.jpg",
       "faces_detected": 3,
       "expected_faces": 3,
-      "inference_time_ms": 78.09782028198242,
+      "inference_time_ms": 70.34087181091309,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1952,7 +1952,7 @@
       "file": "test_92_trio_asian_family_three_generations.jpg",
       "faces_detected": 3,
       "expected_faces": 3,
-      "inference_time_ms": 75.79493522644043,
+      "inference_time_ms": 69.36287879943848,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -1984,7 +1984,7 @@
       "file": "test_93_quartet_african_children.jpg",
       "faces_detected": 4,
       "expected_faces": 4,
-      "inference_time_ms": 94.35200691223145,
+      "inference_time_ms": 70.51396369934082,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -2024,7 +2024,7 @@
       "file": "test_94_family_arab_multigenerational.jpg",
       "faces_detected": 5,
       "expected_faces": 5,
-      "inference_time_ms": 76.44319534301758,
+      "inference_time_ms": 72.69692420959473,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -2072,7 +2072,7 @@
       "file": "test_95_family_slavic_five_members.jpg",
       "faces_detected": 5,
       "expected_faces": 5,
-      "inference_time_ms": 74.20682907104492,
+      "inference_time_ms": 72.44086265563965,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -2120,14 +2120,14 @@
       "file": "test_96_group_diverse_tech_team.jpg",
       "faces_detected": 6,
       "expected_faces": 6,
-      "inference_time_ms": 75.20580291748047,
+      "inference_time_ms": 73.56500625610352,
       "faces_detail": [
         {
           "face_idx": 1,
-          "age": 39,
+          "age": 43,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%90 - 39 Age",
+          "badge": "%90 - 43 Age",
           "confidence": 0.9
         },
         {
@@ -2140,18 +2140,18 @@
         },
         {
           "face_idx": 3,
-          "age": 39,
+          "age": 42,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%87 - 39 Age",
+          "badge": "%87 - 42 Age",
           "confidence": 0.87
         },
         {
           "face_idx": 4,
-          "age": 40,
+          "age": 44,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%86 - 40 Age",
+          "badge": "%86 - 44 Age",
           "confidence": 0.86
         },
         {
@@ -2176,7 +2176,7 @@
       "file": "test_97_team_multinational_athletes.jpg",
       "faces_detected": 8,
       "expected_faces": 8,
-      "inference_time_ms": 77.36396789550781,
+      "inference_time_ms": 78.9787769317627,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -2236,10 +2236,10 @@
         },
         {
           "face_idx": 8,
-          "age": 40,
+          "age": 44,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%70 - 40 Age",
+          "badge": "%70 - 44 Age",
           "confidence": 0.7
         }
       ]
@@ -2248,7 +2248,7 @@
       "file": "test_98_classroom_international_students.jpg",
       "faces_detected": 10,
       "expected_faces": 10,
-      "inference_time_ms": 77.86107063293457,
+      "inference_time_ms": 78.85408401489258,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -2300,10 +2300,10 @@
         },
         {
           "face_idx": 7,
-          "age": 39,
+          "age": 43,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%84 - 39 Age",
+          "badge": "%84 - 43 Age",
           "confidence": 0.84
         },
         {
@@ -2336,7 +2336,7 @@
       "file": "test_99_crowd_festive_fifteen_people.jpg",
       "faces_detected": 15,
       "expected_faces": 15,
-      "inference_time_ms": 81.5889835357666,
+      "inference_time_ms": 82.25274085998535,
       "faces_detail": [
         {
           "face_idx": 1,
@@ -2388,10 +2388,10 @@
         },
         {
           "face_idx": 7,
-          "age": 38,
+          "age": 41,
           "classification": "18+ Adult",
           "is_adult": true,
-          "badge": "%83 - 38 Age",
+          "badge": "%83 - 41 Age",
           "confidence": 0.83
         },
         {
