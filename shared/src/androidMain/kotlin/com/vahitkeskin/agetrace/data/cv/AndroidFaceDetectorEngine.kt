@@ -31,7 +31,7 @@ class AndroidFaceDetectorEngine(
     override suspend fun detectFaces(buffer: PixelBuffer): List<RawFaceCandidate> = withContext(Dispatchers.Default) {
         val bitmap = try {
             Bitmap.createBitmap(buffer.pixels, buffer.width, buffer.height, Bitmap.Config.ARGB_8888)
-        } catch (e: Exception) {
+        } catch (t: Throwable) {
             null
         }
 
@@ -42,10 +42,10 @@ class AndroidFaceDetectorEngine(
                 val task = mlKitDetector.process(inputImage)
                 val mlFaces = Tasks.await(task, 4, TimeUnit.SECONDS)
                 if (!mlFaces.isNullOrEmpty()) {
+                    val bw = bitmap.width.toFloat()
+                    val bh = bitmap.height.toFloat()
                     val candidates = mlFaces.map { face ->
                         val rect = face.boundingBox
-                        val bw = bitmap.width.toFloat()
-                        val bh = bitmap.height.toFloat()
 
                         // Normalize and frame head nicely
                         val normX = (rect.left.toFloat() / bw).coerceIn(0f, 0.98f)
@@ -63,9 +63,10 @@ class AndroidFaceDetectorEngine(
                             skinScore = 0.94f
                         )
                     }
+                    try { bitmap.recycle() } catch (t: Throwable) {}
                     return@withContext candidates
                 }
-            } catch (e: Exception) {
+            } catch (t: Throwable) {
                 // Continue to secondary fallback
             }
 
@@ -77,6 +78,9 @@ class AndroidFaceDetectorEngine(
                 val androidDetector = android.media.FaceDetector(evenW, evenH, 8)
                 val foundFaces = arrayOfNulls<android.media.FaceDetector.Face>(8)
                 val count = androidDetector.findFaces(bmp565, foundFaces)
+                try { bmp565.recycle() } catch (t: Throwable) {}
+                try { bitmap.recycle() } catch (t: Throwable) {}
+
                 if (count > 0) {
                     val candidates = mutableListOf<RawFaceCandidate>()
                     val midPoint = PointF()
@@ -112,7 +116,8 @@ class AndroidFaceDetectorEngine(
                         return@withContext candidates
                     }
                 }
-            } catch (e: Exception) {
+            } catch (t: Throwable) {
+                try { bitmap.recycle() } catch (rec: Throwable) {}
                 // Continue to tertiary fallback
             }
         }

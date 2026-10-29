@@ -39,11 +39,15 @@ class AnalyzeImageUseCase(
                     val primaryFace = parsed.faces.first()
 
                     val finalBuffer = if (parsed.rotationApplied != 0) {
-                        when (parsed.rotationApplied) {
-                            90 -> buffer.rotate90(clockwise = false)
-                            270 -> buffer.rotate90(clockwise = true)
-                            180 -> buffer.rotate90(true).rotate90(true)
-                            else -> buffer
+                        try {
+                            when (parsed.rotationApplied) {
+                                90 -> buffer.rotate90(clockwise = false)
+                                270 -> buffer.rotate90(clockwise = true)
+                                180 -> buffer.rotate90(true).rotate90(true)
+                                else -> buffer
+                            }
+                        } catch (t: Throwable) {
+                            buffer
                         }
                     } else buffer
 

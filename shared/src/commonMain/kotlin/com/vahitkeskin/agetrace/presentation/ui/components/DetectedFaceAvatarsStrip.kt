@@ -125,7 +125,7 @@ fun DetectedFaceAvatarsStrip(
                         )
                         val sub = pixelBuffer.subBuffer(headBox)
                         PlatformImageBridge.pixelBufferToImageBitmap(sub)
-                    } catch (e: Exception) {
+                    } catch (t: Throwable) {
                         null
                     }
                 }
@@ -175,7 +175,7 @@ fun DetectedFaceAvatarsStrip(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(7.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // "%Blabla - blabla Age" Label
                     Row(
@@ -183,39 +183,44 @@ fun DetectedFaceAvatarsStrip(
                         horizontalArrangement = Arrangement.Center,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 2.dp)
+                            .padding(horizontal = 4.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(5.dp)
+                                .size(6.dp)
                                 .clip(CircleShape)
                                 .background(themeColor)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
                         Text(
                             text = "%${face.confidencePercentage} - ${face.estimatedAge} Age",
                             color = Color.White,
-                            fontSize = 10.5.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             softWrap = false
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(3.dp))
+                    Spacer(modifier = Modifier.height(5.dp))
 
-                    // Minor / Adult Tag
+                    // Minor / Adult Tag (High-contrast, crystal clear badge)
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(themeColor.copy(alpha = 0.2f))
-                            .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(if (face.classification.isAdult) Color(0x33EF4444) else Color(0x3310B981))
+                            .border(
+                                width = 1.dp,
+                                color = if (face.classification.isAdult) Color(0x80EF4444) else Color(0x8010B981),
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 2.5.dp)
                     ) {
                         Text(
                             text = if (face.classification.isAdult) "Yetişkin" else "Reşit Değil",
-                            color = themeColor,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.SemiBold
+                            color = if (face.classification.isAdult) Color(0xFFFCA5A5) else Color(0xFF6EE7B7),
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }

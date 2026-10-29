@@ -42,7 +42,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -51,6 +55,7 @@ import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.domain.model.DetectedFace
 import com.vahitkeskin.agetrace.presentation.theme.*
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -226,12 +231,11 @@ fun FaceOverlayCanvas(
                     )
                 }
 
-                // Dedicated Musixy/VKControl-Style Speech Balloon placed directly ABOVE the face box
-                // Features: Seamless downward pointing pointer arrow, dark slate gradient, teal/indigo border, dynamic scaling
+                // Dedicated Musixy/VKControl-Style Speech Balloon placed cleanly ABOVE the face box
                 val isSelected = (face.id == selectedFace?.id)
 
-                // Balloon Width: Aligned with face box width, bounded to prevent clipping or excessive size
-                val balloonWidthDp = if (fwDp >= 44.dp) fwDp.coerceAtMost(108.dp) else fwDp.coerceAtLeast(36.dp)
+                // Balloon Width: Ensure minimum 62dp so text always has plenty of breathing room, scaled with face box
+                val balloonWidthDp = max(fwDp * 0.92f, 62.dp).coerceAtMost(104.dp)
                 val balloonWidthPx = with(density) { balloonWidthDp.toPx() }
 
                 // Centering balloon above the face box
@@ -244,9 +248,9 @@ fun FaceOverlayCanvas(
                 // Arrow dimensions & corner radius
                 val cornerRadiusDp = if (balloonWidthDp < 48.dp) 5.dp else 7.dp
                 val cornerRadiusPx = with(density) { cornerRadiusDp.toPx() }
-                val arrowWidthDp = if (balloonWidthDp < 48.dp) 8.dp else 11.dp
+                val arrowWidthDp = if (balloonWidthDp < 48.dp) 8.dp else 10.dp
                 val arrowWidthPx = with(density) { arrowWidthDp.toPx() }
-                val arrowHeightDp = 5.dp
+                val arrowHeightDp = 4.5.dp
                 val arrowHeightPx = with(density) { arrowHeightDp.toPx() }
 
                 // Pointer arrow dynamically aims directly at the horizontal center of the face box
@@ -255,18 +259,18 @@ fun FaceOverlayCanvas(
                     (balloonWidthPx - cornerRadiusPx - arrowWidthPx / 2f).coerceAtLeast(cornerRadiusPx + arrowWidthPx / 2f)
                 )
 
-                // Layout determination
-                val isSingleLine = (balloonWidthDp >= 84.dp)
-                val balloonHeightDp = if (isSingleLine) 27.dp else 32.dp
+                // Layout determination: Focused exclusively on Age without percentage
+                val balloonHeightDp = 26.dp
                 val balloonHeightPx = with(density) { balloonHeightDp.toPx() }
 
-                // Position: Directly above the face box if space allows; otherwise inside the top edge
-                val hasRoomAbove = (fyPx >= balloonHeightPx + 1f)
+                // Position: 2dp clean separation above the face bracket so nothing is crushed or obscured
+                val balloonSpacingPx = with(density) { 2.dp.toPx() }
+                val hasRoomAbove = (fyPx >= balloonHeightPx + balloonSpacingPx + 2f)
                 val isBelow = !hasRoomAbove // If above, arrow is at bottom pointing down (isBelow = false)
                 val balloonYPx = if (hasRoomAbove) {
-                    fyPx - balloonHeightPx + 1f
+                    fyPx - balloonHeightPx - balloonSpacingPx
                 } else {
-                    fyPx
+                    fyPx + fhPx + balloonSpacingPx
                 }
 
                 val balloonShape = remember(arrowWidthPx, arrowHeightPx, arrowXPx, isBelow, cornerRadiusPx) {
@@ -279,7 +283,7 @@ fun FaceOverlayCanvas(
                     )
                 }
 
-                val availWDp = (balloonWidthDp - 6.dp).value.coerceAtLeast(10f)
+                val textMeasurer = rememberTextMeasurer()
 
                 Box(
                     modifier = Modifier
@@ -316,18 +320,46 @@ fun FaceOverlayCanvas(
                         .clip(balloonShape)
                         .clickable { onFaceClick(face) }
                         .padding(
-                            start = 3.dp,
-                            end = 3.dp,
-                            top = if (isBelow) arrowHeightDp else 1.dp,
-                            bottom = if (!isBelow) arrowHeightDp else 1.dp
+                            start = 8.dp,
+                            end = 8.dp,
+                            top = if (isBelow) arrowHeightDp + 1.dp else 1.dp,
+                            bottom = if (!isBelow) arrowHeightDp + 1.dp else 1.dp
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (isSingleLine) {
-                        val singleText = "%${face.confidencePercentage} - ${face.estimatedAge} Age"
-                        val dynFontSize = (availWDp / (singleText.length * 0.58f)).coerceIn(8.5f, 11.5f).sp
+                    BoxWithConstraints(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val availWPx = constraints.maxWidth.toFloat()
+                        val availHPx = constraints.maxHeight.toFloat()
+                        val ageText = "${face.estimatedAge} Age"
+
+                        // Automatically adapt font size step-by-step to fit balloon bounds perfectly with safety margin
+                        val dynFontSize = remember(ageText, availWPx, availHPx) {
+                            val safeW = (availWPx - 4f).coerceAtLeast(10f)
+                            val safeH = (availHPx - 4f).coerceAtLeast(10f)
+                            var curSp = 12f
+                            while (curSp > 6.5f) {
+                                val measured = textMeasurer.measure(
+                                    text = AnnotatedString(ageText),
+                                    style = TextStyle(
+                                        fontSize = curSp.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Default
+                                    ),
+                                    maxLines = 1
+                                )
+                                if (measured.size.width <= safeW && measured.size.height <= safeH) {
+                                    break
+                                }
+                                curSp -= 0.5f
+                            }
+                            curSp.sp
+                        }
+
                         Text(
-                            text = singleText,
+                            text = ageText,
                             color = Color.White,
                             fontSize = dynFontSize,
                             fontWeight = FontWeight.Bold,
@@ -335,37 +367,6 @@ fun FaceOverlayCanvas(
                             softWrap = false,
                             textAlign = TextAlign.Center
                         )
-                    } else {
-                        val line1Text = if (balloonWidthDp < 38.dp) "${face.estimatedAge}" else "${face.estimatedAge} Age"
-                        val line2Text = "%${face.confidencePercentage}"
-                        val line1FontSize = (availWDp / (line1Text.length * 0.62f)).coerceIn(7.5f, 10.5f).sp
-                        val line2FontSize = (availWDp / (line2Text.length * 0.62f)).coerceIn(6.5f, 8.5f).sp
-
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = line1Text,
-                                color = Color.White,
-                                fontSize = line1FontSize,
-                                lineHeight = line1FontSize * 1.15f,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                text = line2Text,
-                                color = Color(0xFF2DD4BF),
-                                fontSize = line2FontSize,
-                                lineHeight = line2FontSize * 1.15f,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                softWrap = false,
-                                textAlign = TextAlign.Center
-                            )
-                        }
                     }
                 }
             }

@@ -211,7 +211,7 @@ fun AgeTraceScreen(
                             selectedFace = state.selectedFace
                         )
 
-                        Spacer(modifier = Modifier.height(28.dp))
+                        Spacer(modifier = Modifier.height(64.dp))
                     }
                 }
             }

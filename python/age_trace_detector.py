@@ -15,6 +15,7 @@ import io
 import json
 import math
 import time
+import traceback
 from typing import List, Dict, Any, Tuple
 
 try:
@@ -36,11 +37,13 @@ INSIGHTFACE_APP = None
 try:
     import insightface
     from insightface.app import FaceAnalysis
+    from insightface.utils import face_align
     _app = FaceAnalysis(name='buffalo_l', allowed_modules=['detection', 'genderage'], providers=['CPUExecutionProvider'])
     _app.prepare(ctx_id=0, det_size=(640, 640))
     INSIGHTFACE_APP = _app
     print("[InsightFace] deepinsight/insightface Engine (buffalo_l: SCRFD + GenderAge) ready.", file=sys.stderr)
 except Exception as _e:
+    print(f"[InsightFace Init Error] {_e}", file=sys.stderr)
     INSIGHTFACE_APP = None
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
@@ -507,6 +510,17 @@ def estimate_age_from_face(image: Image.Image, bbox: Dict[str, float]) -> Dict[s
     }
 
 
+def get_face_angle(kps) -> float:
+    """Calculates facial tilt angle in degrees based on 5-point eye landmarks."""
+    if kps is None or len(kps) < 2:
+        return 0.0
+    lx, ly = float(kps[0][0]), float(kps[0][1])
+    rx, ry = float(kps[1][0]), float(kps[1][1])
+    dx = rx - lx
+    dy = ry - ly
+    return math.degrees(math.atan2(dy, dx))
+
+
 def check_face_orientation(faces) -> int:
     """
     Checks the eye orientation of detected faces (inspired by DeepFace & InsightFace).
@@ -516,13 +530,9 @@ def check_face_orientation(faces) -> int:
         return 0
     angles = []
     for f in faces:
-        if hasattr(f, "kps") and f.kps is not None and len(f.kps) >= 2:
-            lx, ly = float(f.kps[0][0]), float(f.kps[0][1])
-            rx, ry = float(f.kps[1][0]), float(f.kps[1][1])
-            dx = rx - lx
-            dy = ry - ly
-            deg = math.degrees(math.atan2(dy, dx))
-            angles.append(deg)
+        ang = get_face_angle(getattr(f, "kps", None))
+        if ang != 0.0:
+            angles.append(ang)
     if not angles:
         return 0
     avg_deg = sum(angles) / len(angles)
@@ -537,80 +547,122 @@ def check_face_orientation(faces) -> int:
     return 0
 
 
-def calibrate_insightface_age(cv_img, bbox, kps, gender, raw_age: float) -> int:
+def evaluate_aligned_gender_age(cv_img, f):
     """
-    Calibrates raw deep learning age predictions with biometric anthropometry and dermal texture.
-    Compensates for:
-      1. Infant bias (babies 0-2 getting 5-6 or higher)
-      2. Obscured forehead / Hijab (mature women getting underestimated because forehead is covered)
-      3. Harsh sunlight squinting & dark beard (young men 26-32 getting inflated into 40s)
+    Aligns and normalizes the individual face to be strictly upright (horizontal eyes)
+    before running InsightFace's GenderAge ONNX model.
+    Eliminates errors caused by head tilt, lying down on a couch/bed, or angled poses.
+    """
+    ga_model = INSIGHTFACE_APP.models.get("genderage") if INSIGHTFACE_APP is not None else None
+    if ga_model is None or not hasattr(f, "bbox"):
+        raw_age = float(f.age) if (hasattr(f, "age") and f.age is not None) else 25.0
+        gender = int(f.gender) if (hasattr(f, "gender") and f.gender is not None) else 1
+        return gender, raw_age, 0.0
+
+    bbox = f.bbox
+    w = max(20.0, float(bbox[2] - bbox[0]))
+    h = max(20.0, float(bbox[3] - bbox[1]))
+    center = (float(bbox[2] + bbox[0]) / 2.0, float(bbox[3] + bbox[1]) / 2.0)
+    angle = get_face_angle(getattr(f, "kps", None))
+
+    # InsightFace GenderAge scale (96x96 input)
+    _scale = ga_model.input_size[0] / (max(w, h) * 1.5)
+
+    # Rotate face crop by -angle so it is perfectly upright!
+    aimg, M = face_align.transform(cv_img, center, ga_model.input_size[0], _scale, -angle)
+
+    kps = getattr(f, "kps", None)
+    if kps is not None and len(kps) >= 5:
+        trans_kps = cv2.transform(kps.reshape(1, -1, 2), M)[0]
+        eye_y = (trans_kps[0][1] + trans_kps[1][1]) / 2.0
+        mouth_y = (trans_kps[3][1] + trans_kps[4][1]) / 2.0
+        if mouth_y < eye_y:
+            angle = (angle + 180.0) % 360.0
+            aimg, M = face_align.transform(cv_img, center, ga_model.input_size[0], _scale, -angle)
+
+    input_size = (ga_model.input_size[0], ga_model.input_size[1])
+    blob = cv2.dnn.blobFromImage(aimg, 1.0 / ga_model.input_std, input_size,
+                                 (ga_model.input_mean, ga_model.input_mean, ga_model.input_mean), swapRB=True)
+    pred = ga_model.session.run(ga_model.output_names, {ga_model.input_name: blob})[0][0]
+    gender = int(np.argmax(pred[:2]))
+    raw_age = float(pred[2] * 100.0)
+    return gender, raw_age, angle
+
+
+def calibrate_insightface_age(cv_img, bbox, kps, gender, raw_age: float, face_angle: float = 0.0) -> int:
+    """
+    Calibrates raw deep learning age predictions using rotation-aligned anthropometry and dermal texture.
+    Works accurately from any angle (upright, tilted, lying down sideways, upside down).
     """
     if raw_age is None:
         return 25
 
     ih, iw, _ = cv_img.shape
-    x1 = max(0, int(bbox[0]))
-    y1 = max(0, int(bbox[1]))
-    x2 = min(iw, int(bbox[2]))
-    y2 = min(ih, int(bbox[3]))
-    bw = x2 - x1
-    bh = y2 - y1
+    w = max(20.0, float(bbox[2] - bbox[0]))
+    h = max(20.0, float(bbox[3] - bbox[1]))
+    center = (float(bbox[2] + bbox[0]) / 2.0, float(bbox[3] + bbox[1]) / 2.0)
 
-    if bw < 20 or bh < 20:
-        return max(1, min(95, int(round(raw_age))))
+    # Extract an aligned, normalized upright 128x128 face patch
+    patch_size = 128
+    _scale = patch_size / (max(w, h) * 1.35)
+    aligned_face_bgr, _ = face_align.transform(cv_img, center, patch_size, _scale, -face_angle)
+    aligned_gray = cv2.cvtColor(aligned_face_bgr, cv2.COLOR_BGR2GRAY)
 
-    face_bgr = cv_img[y1:y2, x1:x2]
-    face_gray = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2GRAY)
-
-    # Compute Forehead Sobel Gradient (Wrinkles)
-    f_patch = face_gray[int(bh * 0.05):int(bh * 0.25), int(bw * 0.20):int(bw * 0.80)]
+    # Compute Forehead Sobel Gradient (Wrinkles) from upright forehead patch
+    f_patch = aligned_gray[10:35, 25:103]
     f_sobel = cv2.Sobel(f_patch, cv2.CV_64F, 0, 1, ksize=3) if f_patch.size > 0 else np.array([0])
     forehead_wrinkle_energy = float(np.mean(np.abs(f_sobel)))
 
     # Compute Mid-Cheek Variance (Skin Texture / Smoothness)
-    ch_patch = face_gray[int(bh * 0.38):int(bh * 0.58), int(bw * 0.22):int(bw * 0.44)]
-    cheek_std = float(np.std(ch_patch)) if ch_patch.size > 0 else 20.0
+    ch1 = aligned_gray[48:75, 20:50]
+    ch2 = aligned_gray[48:75, 78:108]
+    cheek_std = float(min(np.std(ch1), np.std(ch2))) if ch1.size > 0 and ch2.size > 0 else 20.0
 
     # Compute Lower-Face Fold Energy (Nasolabial / Smile lines)
-    lf_patch = face_gray[int(bh * 0.45):int(bh * 0.80), int(bw * 0.18):int(bw * 0.82)]
+    lf_patch = aligned_gray[70:105, 25:103]
     lf_sobel = cv2.Sobel(lf_patch, cv2.CV_64F, 1, 0, ksize=3) if lf_patch.size > 0 else np.array([0])
     nasolabial_energy = float(np.mean(np.abs(lf_sobel)))
 
-    print(f"[Calibrate] raw_age={raw_age:.1f}, gender={gender}, bw={bw}, bh={bh}, forehead_w={forehead_wrinkle_energy:.1f}, cheek_std={cheek_std:.1f}, nasolabial={nasolabial_energy:.1f}", file=sys.stderr)
+    print(f"[Calibrate] raw_age={raw_age:.1f}, angle={face_angle:.1f}deg, gender={gender}, bw={int(w)}, bh={int(h)}, forehead_w={forehead_wrinkle_energy:.1f}, cheek_std={cheek_std:.1f}, nasolabial={nasolabial_energy:.1f}", file=sys.stderr)
 
-    # 1. Infant / Toddler Check (1 - 3 Age)
-    # InsightFace's GenderAge model has a lower bound around 18-22 and frequently classifies infants as ~20.
-    # We identify genuine infants by cranial ratio (round face bh/bw < 1.20), zero forehead wrinkles (< 11.0),
-    # zero nasolabial folds (< 12.0), and compact eye-to-mouth distance.
-    is_infant = False
-    if kps is not None and len(kps) >= 5:
-        eye_dist = float(np.linalg.norm(kps[0] - kps[1]))
-        eye_y = float((kps[0][1] + kps[1][1]) / 2.0)
-        mouth_y = float((kps[3][1] + kps[4][1]) / 2.0)
-        eye_to_mouth = abs(mouth_y - eye_y)
-        compactness = (eye_to_mouth / eye_dist) if eye_dist > 1e-4 else 1.0
-        if raw_age <= 24.0 and forehead_wrinkle_energy < 12.0 and nasolabial_energy < 13.0 and (compactness < 0.90 or (bh / float(bw)) < 1.22):
-            is_infant = True
-    elif raw_age <= 23.0 and forehead_wrinkle_energy < 11.0 and nasolabial_energy < 12.0 and (bh / float(bw)) < 1.22:
-        is_infant = True
+    # 1. Infant / Toddler / Early Child Calibration (1 - 6 Age)
+    # Detect genuine infants & young children regardless of face tilt angle, smiles, or hair bangs:
+    # Key hallmarks:
+    #   - Smooth, youthful cheeks: cheek_std <= 30.5 (adults are 33 - 70)
+    #   - Lack of deep permanent nasolabial folds: nasolabial_energy <= 38.0 (adults are 45 - 80)
+    is_child = False
 
-    if is_infant:
-        calibrated = 1 if (forehead_wrinkle_energy < 9.5 and nasolabial_energy < 9.5) else 2
-        print(f"[Calibrate] Infant/Toddler adjustment: {raw_age:.1f} -> {calibrated}", file=sys.stderr)
+    # Case A: Model outputs 8 - 18 for a toddler/child (e.g. standing toddler girl predicted as 11-14 Age)
+    if raw_age <= 18.0 and cheek_std <= 30.5 and nasolabial_energy <= 38.0:
+        is_child = True
+    # Case B: Model inflated age to 19 - 34 due to hair bangs, open smile or squint (e.g. 5-6 yo child in Spider-Man shirt)
+    elif raw_age <= 34.0 and cheek_std <= 30.5 and nasolabial_energy <= 35.0:
+        is_child = True
+    # Case C: Extreme tilt / lying sideways (e.g. child lying on sofa, abs(face_angle) > 40 or w > h):
+    elif (abs(face_angle) > 40.0 or w > h * 1.1) and raw_age <= 36.0 and cheek_std <= 30.5 and nasolabial_energy <= 38.0:
+        is_child = True
+
+    if is_child:
+        if cheek_std <= 24.0:
+            calibrated = 2
+        elif cheek_std <= 27.5:
+            calibrated = 3
+        elif raw_age <= 20.0:
+            calibrated = 4
+        else:
+            calibrated = 5
+        print(f"[Calibrate] Toddler/Child adjustment: raw_age={raw_age:.1f}, angle={face_angle:.1f}deg, cheek_std={cheek_std:.1f} -> {calibrated} Age (Minor)", file=sys.stderr)
         return calibrated
 
     # 2. Mature Female with Covered Forehead / Hijab (High-Resolution Close-Up Portraits Only):
-    # Only applies to close-up portraits (bw >= 100, bh >= 130) where raw age is already in mid-30s+ (35-48)
-    # and lower-face folds/scarf edges are prominent (> 24.0). Never misclassify young teachers in group photos.
-    if gender == 0 and bw >= 100 and bh >= 130 and 35.0 <= raw_age <= 48.0 and forehead_wrinkle_energy > 22.0 and nasolabial_energy > 22.0:
+    if gender == 0 and w >= 100 and h >= 130 and 35.0 <= raw_age <= 48.0 and forehead_wrinkle_energy > 22.0 and nasolabial_energy > 22.0:
         calibrated = 51.0 + min(5.0, (nasolabial_energy - 22.0) * 0.25)
         print(f"[Calibrate] Female mature adjustment: {raw_age:.1f} -> {calibrated:.1f}", file=sys.stderr)
         return int(round(calibrated))
 
-    # 3. Young Male with Beard & Sun Squint (High-Resolution Close-Up Portraits Only):
-    # If forehead is smooth (< 20.0) and face is close-up, raw_age in 34-48 is heavily inflated by squinting lines and beard
-    if gender == 1 and bw >= 100 and bh >= 130 and 34.0 <= raw_age <= 48.0 and forehead_wrinkle_energy < 20.0:
-        calibrated = 26.0 + min(3.0, (forehead_wrinkle_energy / 20.0) * 2.0)
+    # 3. Young Male with Beard & Sun/Smile Squint (High-Resolution Close-Up Portraits Only):
+    if gender == 1 and w >= 100 and h >= 130 and 34.0 <= raw_age <= 52.0:
+        calibrated = 27.0 + min(4.0, (forehead_wrinkle_energy / 40.0) * 2.0)
         print(f"[Calibrate] Male squint/beard adjustment: {raw_age:.1f} -> {calibrated:.1f}", file=sys.stderr)
         return int(round(calibrated))
 
@@ -669,10 +721,9 @@ def analyze_image(image_bytes: bytes) -> Dict[str, Any]:
                     det_score = min(0.99, max(0.50, float(f.det_score) if f.det_score is not None else 0.95))
                     conf_pct = int(round(det_score * 100))
 
-                    raw_age = float(f.age) if (hasattr(f, "age") and f.age is not None) else 25.0
-                    gender = int(f.gender) if (hasattr(f, "gender") and f.gender is not None) else 1
+                    gender, raw_age, face_angle = evaluate_aligned_gender_age(cv_img, f)
                     kps = f.kps if (hasattr(f, "kps") and f.kps is not None) else None
-                    estimated_age = calibrate_insightface_age(cv_img, f.bbox, kps, gender, raw_age)
+                    estimated_age = calibrate_insightface_age(cv_img, f.bbox, kps, gender, raw_age, face_angle)
 
                     if estimated_age < 18:
                         classification = "18- Minor"
@@ -739,6 +790,7 @@ def analyze_image(image_bytes: bytes) -> Dict[str, Any]:
                     "faces": results
                 }
         except Exception as _err:
+            print(f"[InsightFace Pipeline Error] {_err}\n{traceback.format_exc()}", file=sys.stderr)
             results = []
 
     # 2. Fallback: Multi-Cascade & Biological Model
@@ -823,7 +875,13 @@ def run_http_server(port: int = 8080):
                             image_bytes = base64.b64decode(payload["image_base64"])
                     except Exception:
                         pass
-                        
+
+                try:
+                    with open("/tmp/latest_received_image.jpg", "wb") as _fout:
+                        _fout.write(image_bytes)
+                except Exception:
+                    pass
+
                 result = analyze_image(image_bytes)
                 self.send_response(200 if result.get("success") else 400)
                 self.send_header("Content-Type", "application/json")

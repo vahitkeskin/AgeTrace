@@ -120,16 +120,16 @@ class AgeTraceViewModel(
             AgeTraceContract.Intent.RotateCurrentImage -> {
                 viewModelScope.launch {
                     val currentBuffer = _state.value.pixelBuffer ?: return@launch
-                    val rotatedBuffer = currentBuffer.rotate90(clockwise = true)
-                    val rotatedBitmap = PlatformImageBridge.pixelBufferToImageBitmap(rotatedBuffer)
-                    _state.update {
-                        it.copy(
-                            pixelBuffer = rotatedBuffer,
-                            displayBitmap = rotatedBitmap,
-                            isAnalyzing = true
-                        )
-                    }
                     try {
+                        val rotatedBuffer = currentBuffer.rotate90(clockwise = true)
+                        val rotatedBitmap = PlatformImageBridge.pixelBufferToImageBitmap(rotatedBuffer)
+                        _state.update {
+                            it.copy(
+                                pixelBuffer = rotatedBuffer,
+                                displayBitmap = rotatedBitmap,
+                                isAnalyzing = true
+                            )
+                        }
                         val analysisResult = analyzeImageUseCase(
                             buffer = rotatedBuffer,
                             preferredEngine = _state.value.selectedEngine
@@ -142,7 +142,7 @@ class AgeTraceViewModel(
                                 isAnalyzing = false
                             )
                         }
-                    } catch (e: Exception) {
+                    } catch (t: Throwable) {
                         _state.update { it.copy(isAnalyzing = false) }
                     }
                 }
@@ -222,11 +222,15 @@ class AgeTraceViewModel(
                 )
 
                 val finalBuffer = if (analysisResult.rotationApplied != 0) {
-                    when (analysisResult.rotationApplied) {
-                        90 -> buffer.rotate90(clockwise = false)
-                        270 -> buffer.rotate90(clockwise = true)
-                        180 -> buffer.rotate90(true).rotate90(true)
-                        else -> buffer
+                    try {
+                        when (analysisResult.rotationApplied) {
+                            90 -> buffer.rotate90(clockwise = false)
+                            270 -> buffer.rotate90(clockwise = true)
+                            180 -> buffer.rotate90(true).rotate90(true)
+                            else -> buffer
+                        }
+                    } catch (t: Throwable) {
+                        buffer
                     }
                 } else buffer
 
@@ -245,11 +249,11 @@ class AgeTraceViewModel(
                         isAnalyzing = false
                     )
                 }
-            } catch (e: Exception) {
+            } catch (t: Throwable) {
                 _state.update {
                     it.copy(
                         isAnalyzing = false,
-                        errorMessage = "Analiz sırasında hata oluştu: ${e.message}"
+                        errorMessage = "Analiz sırasında hata oluştu: ${t.message}"
                     )
                 }
             }

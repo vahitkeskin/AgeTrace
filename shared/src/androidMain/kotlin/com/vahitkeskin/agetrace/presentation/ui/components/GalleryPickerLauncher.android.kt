@@ -21,8 +21,8 @@ actual fun rememberGalleryPickerLauncher(
                 if (bytes != null && bytes.isNotEmpty()) {
                     onImagePicked("galeri_gorseli.jpg", bytes)
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            } catch (t: Throwable) {
+                t.printStackTrace()
             }
         }
     }

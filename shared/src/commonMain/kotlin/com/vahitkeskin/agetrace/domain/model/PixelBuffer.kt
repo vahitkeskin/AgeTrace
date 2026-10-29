@@ -83,19 +83,24 @@ class PixelBuffer(
     fun rotate90(clockwise: Boolean = true): PixelBuffer {
         val newW = height
         val newH = width
-        val newPixels = IntArray(newW * newH)
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val srcIndex = y * width + x
-                val dstIndex = if (clockwise) {
-                    x * newW + (newW - 1 - y)
-                } else {
-                    (newH - 1 - x) * newW + y
+        return try {
+            val newPixels = IntArray(newW * newH)
+            for (y in 0 until height) {
+                for (x in 0 until width) {
+                    val srcIndex = y * width + x
+                    val dstIndex = if (clockwise) {
+                        x * newW + (newW - 1 - y)
+                    } else {
+                        (newH - 1 - x) * newW + y
+                    }
+                    newPixels[dstIndex] = pixels[srcIndex]
                 }
-                newPixels[dstIndex] = pixels[srcIndex]
             }
+            PixelBuffer(newW, newH, newPixels)
+        } catch (oom: Throwable) {
+            println("PixelBuffer.rotate90 OOM avoided: ${oom.message}")
+            this
         }
-        return PixelBuffer(newW, newH, newPixels)
     }
 
     fun copy(): PixelBuffer {
