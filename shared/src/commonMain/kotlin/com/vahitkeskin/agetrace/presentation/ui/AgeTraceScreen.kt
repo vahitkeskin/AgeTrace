@@ -1,7 +1,10 @@
 package com.vahitkeskin.agetrace.presentation.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,6 +34,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +70,7 @@ import com.vahitkeskin.agetrace.presentation.ui.components.FacebookShimmerSkelet
 import com.vahitkeskin.agetrace.presentation.ui.components.FacebookShimmerViewportOverlay
 import com.vahitkeskin.agetrace.presentation.ui.components.FaceOverlayCanvas
 import com.vahitkeskin.agetrace.presentation.ui.components.FileUploadDropZone
+import com.vahitkeskin.agetrace.presentation.ui.components.FullscreenZoomableImageViewer
 import com.vahitkeskin.agetrace.presentation.ui.components.MetricsSidePanel
 import com.vahitkeskin.agetrace.presentation.ui.components.PlatformBackHandler
 import com.vahitkeskin.agetrace.presentation.ui.components.rememberCameraCaptureLauncher
@@ -80,12 +87,19 @@ fun AgeTraceScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
+    var isFullscreenOpen by remember { mutableStateOf(false) }
+
     // Android System Back Navigation Handler:
-    // If an image/analysis is active, first back press clears the image.
-    // If the image is already clear, back press is unhandled and allows normal app exit.
+    // 1. If Fullscreen Zoom Viewer is open, first back press closes it.
+    // 2. If an image/analysis is active, back press clears the image.
+    // 3. If image is clear, back press allows normal app exit.
     val hasActiveImage = state.displayBitmap != null || state.currentImageSource != null || state.detectedFaces.isNotEmpty()
-    PlatformBackHandler(enabled = hasActiveImage) {
-        viewModel.handleIntent(AgeTraceContract.Intent.ClearCurrentAnalysis)
+    PlatformBackHandler(enabled = isFullscreenOpen || hasActiveImage) {
+        if (isFullscreenOpen) {
+            isFullscreenOpen = false
+        } else {
+            viewModel.handleIntent(AgeTraceContract.Intent.ClearCurrentAnalysis)
+        }
     }
 
     // Multiplatform Native Gallery Launcher (Android PhotoPicker, iOS Photos, Desktop FileDialog)
@@ -168,7 +182,8 @@ fun AgeTraceScreen(
                                 onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) },
                                 onToggleAgeBalloonClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAgeBalloon) },
                                 onPickFileClick = { galleryLauncher() },
-                                onCameraClick = { cameraLauncher() }
+                                onCameraClick = { cameraLauncher() },
+                                onImageClick = { isFullscreenOpen = true }
                             )
 
                             if (state.detectedFaces.isNotEmpty()) {
@@ -221,7 +236,8 @@ fun AgeTraceScreen(
                             onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) },
                             onToggleAgeBalloonClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAgeBalloon) },
                             onPickFileClick = { galleryLauncher() },
-                            onCameraClick = { cameraLauncher() }
+                            onCameraClick = { cameraLauncher() },
+                            onImageClick = { isFullscreenOpen = true }
                         )
 
                         if (state.detectedFaces.isNotEmpty()) {
@@ -255,6 +271,19 @@ fun AgeTraceScreen(
                     }
                 }
             }
+        }
+
+        // 3. Fullscreen Interactive Zoom Viewer Overlay
+        AnimatedVisibility(
+            visible = isFullscreenOpen && state.displayBitmap != null,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            FullscreenZoomableImageViewer(
+                state = state,
+                onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
+                onDismiss = { isFullscreenOpen = false }
+            )
         }
     }
 }
@@ -422,7 +451,8 @@ private fun MainViewport(
     onToggleBlurClick: () -> Unit,
     onToggleAgeBalloonClick: () -> Unit,
     onPickFileClick: () -> Unit,
-    onCameraClick: () -> Unit
+    onCameraClick: () -> Unit,
+    onImageClick: () -> Unit
 ) {
     GlassmorphicCard(
         modifier = modifier,
@@ -440,7 +470,10 @@ private fun MainViewport(
 
         if (displayBitmap != null && pixelBuffer != null) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable { onImageClick() },
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -602,6 +635,13 @@ private fun MainViewport(
                     GlassmorphicIconButton(
                         icon = "🔄",
                         onClick = onRotateClick,
+                        size = 34.dp
+                    )
+
+                    // Frosted Glass Fullscreen Zoom Button
+                    GlassmorphicIconButton(
+                        icon = "⛶",
+                        onClick = onImageClick,
                         size = 34.dp
                     )
                 }
