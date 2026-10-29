@@ -90,110 +90,112 @@ fun FaceOverlayCanvas(
             val offsetYPx = (containerHeightPx - renderedHPx) / 2f
 
             // 1. Canvas Layer: 4 Smooth Rounded Corner Brackets & Dynamic Glass Scan Beam
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val strokeW = with(density) { 1.8.dp.toPx() }
+            if (isAgeBalloonVisible) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val strokeW = with(density) { 1.8.dp.toPx() }
 
-                for (face in faces) {
-                    val box = face.boundingBox
-                    val fx = offsetXPx + box.normalizedX * renderedWPx
-                    val fy = offsetYPx + box.normalizedY * renderedHPx
-                    val fw = box.normalizedWidth * renderedWPx
-                    val fh = box.normalizedHeight * renderedHPx
+                    for (face in faces) {
+                        val box = face.boundingBox
+                        val fx = offsetXPx + box.normalizedX * renderedWPx
+                        val fy = offsetYPx + box.normalizedY * renderedHPx
+                        val fw = box.normalizedWidth * renderedWPx
+                        val fh = box.normalizedHeight * renderedHPx
 
-                    val isSelected = (face.id == selectedFace?.id)
-                    val bracketColor = if (isSelected) Color.White else Color(0xF0FFFFFF)
+                        val isSelected = (face.id == selectedFace?.id)
+                        val bracketColor = if (isSelected) Color.White else Color(0xF0FFFFFF)
 
-                    // 4 Smooth Rounded Corner Focus Brackets
-                    val minDim = min(fw, fh).coerceAtLeast(10f)
-                    val maxRadius = (minDim * 0.28f).coerceAtLeast(4f)
-                    val radius = (minDim * 0.14f).coerceIn(4f, min(24f, maxRadius))
-                    val minArm = radius + 2f
-                    val maxArm = (minDim * 0.45f).coerceAtLeast(minArm + 2f)
-                    val armLen = (radius + minDim * 0.12f).coerceIn(minArm, maxArm)
+                        // 4 Smooth Rounded Corner Focus Brackets
+                        val minDim = min(fw, fh).coerceAtLeast(10f)
+                        val maxRadius = (minDim * 0.28f).coerceAtLeast(4f)
+                        val radius = (minDim * 0.14f).coerceIn(4f, min(24f, maxRadius))
+                        val minArm = radius + 2f
+                        val maxArm = (minDim * 0.45f).coerceAtLeast(minArm + 2f)
+                        val armLen = (radius + minDim * 0.12f).coerceIn(minArm, maxArm)
 
-                    val strokeStyle = Stroke(
-                        width = strokeW,
-                        cap = StrokeCap.Round,
-                        join = StrokeJoin.Round
-                    )
-
-                    // 1. Top-Left Corner Bracket
-                    val tlPath = Path().apply {
-                        moveTo(fx, fy + armLen)
-                        lineTo(fx, fy + radius)
-                        arcTo(
-                            rect = Rect(fx, fy, fx + 2f * radius, fy + 2f * radius),
-                            startAngleDegrees = 180f,
-                            sweepAngleDegrees = 90f,
-                            forceMoveTo = false
+                        val strokeStyle = Stroke(
+                            width = strokeW,
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
                         )
-                        lineTo(fx + armLen, fy)
-                    }
-                    drawPath(tlPath, bracketColor, style = strokeStyle)
 
-                    // 2. Top-Right Corner Bracket
-                    val trPath = Path().apply {
-                        moveTo(fx + fw - armLen, fy)
-                        lineTo(fx + fw - radius, fy)
-                        arcTo(
-                            rect = Rect(fx + fw - 2f * radius, fy, fx + fw, fy + 2f * radius),
-                            startAngleDegrees = 270f,
-                            sweepAngleDegrees = 90f,
-                            forceMoveTo = false
-                        )
-                        lineTo(fx + fw, fy + armLen)
-                    }
-                    drawPath(trPath, bracketColor, style = strokeStyle)
+                        // 1. Top-Left Corner Bracket
+                        val tlPath = Path().apply {
+                            moveTo(fx, fy + armLen)
+                            lineTo(fx, fy + radius)
+                            arcTo(
+                                rect = Rect(fx, fy, fx + 2f * radius, fy + 2f * radius),
+                                startAngleDegrees = 180f,
+                                sweepAngleDegrees = 90f,
+                                forceMoveTo = false
+                            )
+                            lineTo(fx + armLen, fy)
+                        }
+                        drawPath(tlPath, bracketColor, style = strokeStyle)
 
-                    // 3. Bottom-Right Corner Bracket
-                    val brPath = Path().apply {
-                        moveTo(fx + fw, fy + fh - armLen)
-                        lineTo(fx + fw, fy + fh - radius)
-                        arcTo(
-                            rect = Rect(fx + fw - 2f * radius, fy + fh - 2f * radius, fx + fw, fy + fh),
-                            startAngleDegrees = 0f,
-                            sweepAngleDegrees = 90f,
-                            forceMoveTo = false
-                        )
-                        lineTo(fx + fw - armLen, fy + fh)
-                    }
-                    drawPath(brPath, bracketColor, style = strokeStyle)
+                        // 2. Top-Right Corner Bracket
+                        val trPath = Path().apply {
+                            moveTo(fx + fw - armLen, fy)
+                            lineTo(fx + fw - radius, fy)
+                            arcTo(
+                                rect = Rect(fx + fw - 2f * radius, fy, fx + fw, fy + 2f * radius),
+                                startAngleDegrees = 270f,
+                                sweepAngleDegrees = 90f,
+                                forceMoveTo = false
+                            )
+                            lineTo(fx + fw, fy + armLen)
+                        }
+                        drawPath(trPath, bracketColor, style = strokeStyle)
 
-                    // 4. Bottom-Left Corner Bracket
-                    val blPath = Path().apply {
-                        moveTo(fx + armLen, fy + fh)
-                        lineTo(fx + radius, fy + fh)
-                        arcTo(
-                            rect = Rect(fx, fy + fh - 2f * radius, fx + 2f * radius, fy + fh),
-                            startAngleDegrees = 90f,
-                            sweepAngleDegrees = 90f,
-                            forceMoveTo = false
-                        )
-                        lineTo(fx, fy + fh - armLen)
-                    }
-                    drawPath(blPath, bracketColor, style = strokeStyle)
+                        // 3. Bottom-Right Corner Bracket
+                        val brPath = Path().apply {
+                            moveTo(fx + fw, fy + fh - armLen)
+                            lineTo(fx + fw, fy + fh - radius)
+                            arcTo(
+                                rect = Rect(fx + fw - 2f * radius, fy + fh - 2f * radius, fx + fw, fy + fh),
+                                startAngleDegrees = 0f,
+                                sweepAngleDegrees = 90f,
+                                forceMoveTo = false
+                            )
+                            lineTo(fx + fw - armLen, fy + fh)
+                        }
+                        drawPath(brPath, bracketColor, style = strokeStyle)
 
-                    // Polite Laser Scan Beam
-                    if (isScanning) {
-                        val scanY = fy + (fh * scanProgress)
-                        // Gradient glow under scan line
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color(0x0038BDF8), Color(0x2238BDF8), Color(0x0038BDF8)),
-                                startY = scanY - 24f,
-                                endY = scanY + 8f
-                            ),
-                            topLeft = Offset(fx, scanY - 24f),
-                            size = Size(fw, 32f)
-                        )
-                        // Laser scan line
-                        drawLine(
-                            color = Color(0xF2FFFFFF),
-                            start = Offset(fx + 4f, scanY),
-                            end = Offset(fx + fw - 4f, scanY),
-                            strokeWidth = 1.6f,
-                            cap = StrokeCap.Round
-                        )
+                        // 4. Bottom-Left Corner Bracket
+                        val blPath = Path().apply {
+                            moveTo(fx + armLen, fy + fh)
+                            lineTo(fx + radius, fy + fh)
+                            arcTo(
+                                rect = Rect(fx, fy + fh - 2f * radius, fx + 2f * radius, fy + fh),
+                                startAngleDegrees = 90f,
+                                sweepAngleDegrees = 90f,
+                                forceMoveTo = false
+                            )
+                            lineTo(fx, fy + fh - armLen)
+                        }
+                        drawPath(blPath, bracketColor, style = strokeStyle)
+
+                        // Polite Laser Scan Beam
+                        if (isScanning) {
+                            val scanY = fy + (fh * scanProgress)
+                            // Gradient glow under scan line
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(Color(0x0038BDF8), Color(0x2238BDF8), Color(0x0038BDF8)),
+                                    startY = scanY - 24f,
+                                    endY = scanY + 8f
+                                ),
+                                topLeft = Offset(fx, scanY - 24f),
+                                size = Size(fw, 32f)
+                            )
+                            // Laser scan line
+                            drawLine(
+                                color = Color(0xF2FFFFFF),
+                                start = Offset(fx + 4f, scanY),
+                                end = Offset(fx + fw - 4f, scanY),
+                                strokeWidth = 1.6f,
+                                cap = StrokeCap.Round
+                            )
+                        }
                     }
                 }
             }

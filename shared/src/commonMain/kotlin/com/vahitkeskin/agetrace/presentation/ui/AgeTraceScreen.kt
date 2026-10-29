@@ -499,7 +499,7 @@ private fun MainViewport(
                         }
                     }
 
-                    // 2. Glassmorphic Switch Button for Age Balloon Visibility
+                    // 2. Glassmorphic Switch Button for Age Balloon & Face Frame Visibility
                     Row(
                         modifier = Modifier
                             .height(34.dp)
@@ -532,7 +532,7 @@ private fun MainViewport(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "🎈 Yaş Balonu",
+                            text = "🎈 Yaş & Çerçeve",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = if (state.isAgeBalloonVisible) Color(0xFF38BDF8) else TextSecondary
