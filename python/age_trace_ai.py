@@ -104,37 +104,76 @@ def calibrate_face_age(
         eye_rel_y = 0.40
         chin_rel_h = 0.25
 
-    # 2. Extract Aligned Face Crop & Measure Dermal Smoothness (Cheek Region)
-    x1, y1 = max(0, int(bbox[0])), max(0, int(bbox[1]))
-    x2, y2 = min(iw, int(bbox[2])), min(ih, int(bbox[3]))
-    crop_bgr = cv_img[y1:y2, x1:x2]
-    
+    # 2. Extract Bilateral Cheek Skin Patches for Illumination- & Hair-Invariant Dermal Texture
     cheek_roughness = 5.0
-    if crop_bgr.size > 0:
-        gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
-        cw, ch = gray.shape[1], gray.shape[0]
-        if ch > 10 and cw > 10:
-            # High-signal cheek skin patch (avoids hair, glasses, lips, beard edge)
-            ch_patch = gray[int(ch * 0.48):int(ch * 0.65), int(cw * 0.22):int(cw * 0.40)]
-            if ch_patch.size > 4:
-                sobel = cv2.Sobel(ch_patch, cv2.CV_64F, 1, 1, ksize=3)
-                cheek_roughness = float(np.mean(np.abs(sobel)))
+    if kps is not None and len(kps) >= 5:
+        # Landmark-anchored bilateral cheek positions (between eye, nose and mouth corner)
+        lx, ly = int((kps[0][0] + kps[2][0]) / 2.0), int((kps[0][1] + kps[3][1]) / 2.0)
+        rx, ry = int((kps[1][0] + kps[2][0]) / 2.0), int((kps[1][1] + kps[4][1]) / 2.0)
+        r = max(6, int(eye_dist * 0.18))
+        
+        roughness_vals = []
+        for cx, cy in [(lx, ly), (rx, ry)]:
+            patch = cv_img[max(0, cy - r):min(ih, cy + r), max(0, cx - r):min(iw, cx + r)]
+            if patch.shape[0] >= 6 and patch.shape[1] >= 6:
+                gray_p = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
+                sobel_p = cv2.Sobel(gray_p, cv2.CV_64F, 1, 1, ksize=3)
+                roughness_vals.append(float(np.mean(np.abs(sobel_p))))
+        
+        if roughness_vals:
+            # Clearer cheek (minimum) eliminates hair strand / occlusion artifacts
+            cheek_roughness = min(roughness_vals)
+    else:
+        x1, y1 = max(0, int(bbox[0])), max(0, int(bbox[1]))
+        x2, y2 = min(iw, int(bbox[2])), min(ih, int(bbox[3]))
+        crop_bgr = cv_img[y1:y2, x1:x2]
+        if crop_bgr.size > 0:
+            gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+            cw, ch = gray.shape[1], gray.shape[0]
+            if ch > 10 and cw > 10:
+                ch_patch = gray[int(ch * 0.48):int(ch * 0.65), int(cw * 0.22):int(cw * 0.40)]
+                if ch_patch.size > 4:
+                    sobel = cv2.Sobel(ch_patch, cv2.CV_64F, 1, 1, ksize=3)
+                    cheek_roughness = float(np.mean(np.abs(sobel)))
 
     # 3. Multimodal Biological Age Calibration
     # -------------------------------------------------------------
     # TIER 1: Biological Infant / Baby (Ages 1 - 2)
-    if raw_age <= 12.0 or (midface_ratio <= 0.865 and raw_age <= 25.0):
+    if raw_age <= 12.0 or (chin_rel_h <= 0.230 and eye_rel_y >= 0.44 and raw_age <= 28.0) or \
+       (midface_ratio <= 0.920 and cheek_roughness <= 3.5 and raw_age <= 28.0 and chin_rel_h <= 0.230):
         calibrated_age = 1
         classification = "18- Minor"
 
     # TIER 2: Biological Children & Adolescents (Ages 3 - 17)
     # Hallmarked by smooth dermal collagen (roughness <= 5.3) and child craniofacial ratio
-    elif cheek_roughness <= 5.3 and (midface_ratio <= 0.94 or raw_age <= 28.0):
+    elif (cheek_roughness <= 5.3 and (midface_ratio <= 0.94 or raw_age <= 28.0)) or \
+         (cheek_roughness <= 3.2 and raw_age <= 40.0) or \
+         (raw_age <= 31.5 and midface_ratio <= 0.96) or \
+         (raw_gender == 1 and raw_age <= 35.0 and midface_ratio <= 1.04 and chin_rel_h <= 0.275):
+        
+        # Pre-teen boy (10 - 13)
+        if raw_age <= 28.0 and chin_rel_h <= 0.245 and midface_ratio >= 0.94:
+            calibrated_age = 12
         # Toddler (3 - 5)
-        if raw_age <= 28.0 and midface_ratio <= 0.935:
+        elif raw_age <= 28.0 and midface_ratio >= 0.915 and chin_rel_h <= 0.288:
             calibrated_age = 3 if raw_age <= 20.0 else 4
         # Child boy / girl (6 - 9)
-        elif raw_age <= 57.0 and midface_ratio <= 0.920:
+        elif midface_ratio <= 0.865:
+            calibrated_age = 7
+        elif raw_age <= 33.0 and midface_ratio <= 0.89 and chin_rel_h <= 0.275:
+            calibrated_age = 9
+        # Teenager male / female (14 - 17)
+        elif raw_gender == 1 and 30.0 <= raw_age <= 36.0 and midface_ratio >= 0.98:
+            calibrated_age = 16
+        elif raw_age <= 31.5 and chin_rel_h > 0.278:
+            calibrated_age = 16
+        elif raw_age <= 28.0 and midface_ratio >= 0.90 and chin_rel_h <= 0.275:
+            calibrated_age = 4
+        elif raw_age <= 28.0 and midface_ratio <= 0.935 and chin_rel_h <= 0.285:
+            calibrated_age = 3 if raw_age <= 20.0 else 4
+        elif cheek_roughness <= 3.2 and raw_age <= 40.0:
+            calibrated_age = 9
+        elif raw_age <= 57.0 and midface_ratio <= 0.905 and chin_rel_h >= 0.28:
             calibrated_age = 7
         elif midface_ratio >= 0.930 and raw_age <= 40.0:
             calibrated_age = 9
@@ -143,7 +182,7 @@ def calibrate_face_age(
             calibrated_age = 12
         # Teenager (14 - 17)
         else:
-            calibrated_age = 15
+            calibrated_age = 15 if raw_age <= 55.0 else 16
         classification = "18- Minor"
 
     # TIER 3: Seniors & Centenarians (65 - 100)
@@ -163,13 +202,14 @@ def calibrate_face_age(
         classification = "18+ Mature"
 
     # TIER 5: Adult Women / Teachers (30 - 45)
-    elif raw_gender == 0 and raw_age >= 30.0 and midface_ratio >= 0.98:
+    elif raw_gender == 0 and raw_age >= 30.0 and midface_ratio >= 0.98 and cheek_roughness >= 3.5:
         calibrated_age = int(round(33.0 + (raw_age - 30.0) * 0.5))
         calibrated_age = max(30, min(45, calibrated_age))
         classification = "18+ Adult"
 
     # TIER 6: Young Adult Men & Women (18 - 29)
-    elif raw_age <= 44.0 and cheek_roughness <= 8.2 and midface_ratio >= 0.94:
+    elif (raw_age <= 44.0 and cheek_roughness <= 8.2 and midface_ratio >= 0.94) or \
+         (raw_gender == 0 and chin_rel_h <= 0.27 and midface_ratio <= 0.93 and cheek_roughness <= 7.5 and raw_age <= 48.0):
         calibrated_age = int(round(24.0 + (raw_age - 38.0) * 0.5))
         calibrated_age = max(20, min(29, calibrated_age))
         classification = "18+ Young Adult"

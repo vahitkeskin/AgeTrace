@@ -171,3 +171,4 @@ if __name__ == "__main__":
     dup = f"{OUTPUT_DIR}/person_01_elderly_woman.jpg"
     if os.path.exists(dup):
         os.remove(dup)
+
