@@ -141,6 +141,7 @@ fun AgeTraceScreen(
                                 onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
                                 onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
                                 onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) },
+                                onToggleAgeBalloonClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAgeBalloon) },
                                 onPickFileClick = { galleryLauncher() }
                             )
 
@@ -191,6 +192,7 @@ fun AgeTraceScreen(
                             onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
                             onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
                             onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) },
+                            onToggleAgeBalloonClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAgeBalloon) },
                             onPickFileClick = { galleryLauncher() }
                         )
 
@@ -382,6 +384,7 @@ private fun MainViewport(
     onFaceClick: (com.vahitkeskin.agetrace.domain.model.DetectedFace) -> Unit,
     onRotateClick: () -> Unit,
     onToggleBlurClick: () -> Unit,
+    onToggleAgeBalloonClick: () -> Unit,
     onPickFileClick: () -> Unit
 ) {
     GlassmorphicCard(
@@ -417,10 +420,11 @@ private fun MainViewport(
                     imageHeight = pixelBuffer.height,
                     selectedFace = state.selectedFace,
                     onFaceClick = onFaceClick,
-                    isScanning = state.isCameraStreaming || state.isAnalyzing
+                    isScanning = state.isCameraStreaming || state.isAnalyzing,
+                    isAgeBalloonVisible = state.isAgeBalloonVisible
                 )
 
-                // Sleek Floating Controls (Top-Right): Reşit Değil Blur Switch + Rotate Button
+                // Sleek Floating Controls (Top-Right): Reşit Değil Blur Switch + Yaş Balonu Switch + Rotate Button
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -428,12 +432,17 @@ private fun MainViewport(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val thumbOffset by animateDpAsState(
+                    val minorThumbOffset by animateDpAsState(
                         targetValue = if (state.isMinorBlurEnabled) 15.dp else 2.dp,
                         label = "minor_blur_switch"
                     )
 
-                    // Glassmorphic Switch Button for Minor Face Blur
+                    val ageBalloonThumbOffset by animateDpAsState(
+                        targetValue = if (state.isAgeBalloonVisible) 15.dp else 2.dp,
+                        label = "age_balloon_switch"
+                    )
+
+                    // 1. Glassmorphic Switch Button for Minor Face Blur
                     Row(
                         modifier = Modifier
                             .height(34.dp)
@@ -466,7 +475,7 @@ private fun MainViewport(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = if (state.isMinorBlurEnabled) "🛡️ Reşit Değil Koruması" else "👁️ Reşit Değil",
+                            text = if (state.isMinorBlurEnabled) "🛡️ Reşit Değil" else "👁️ Reşit Değil",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = if (state.isMinorBlurEnabled) MinorColor else TextSecondary
@@ -482,7 +491,64 @@ private fun MainViewport(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .padding(start = thumbOffset, top = 2.dp)
+                                    .padding(start = minorThumbOffset, top = 2.dp)
+                                    .size(12.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                            )
+                        }
+                    }
+
+                    // 2. Glassmorphic Switch Button for Age Balloon Visibility
+                    Row(
+                        modifier = Modifier
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(
+                                brush = if (state.isAgeBalloonVisible) {
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xD90369A1), Color(0xB30284C7))
+                                    )
+                                } else {
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xD90F172A), Color(0xB30F172A))
+                                    )
+                                }
+                            )
+                            .border(
+                                width = 1.dp,
+                                brush = if (state.isAgeBalloonVisible) {
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xFF38BDF8).copy(alpha = 0.8f), Color(0xFF38BDF8).copy(alpha = 0.3f))
+                                    )
+                                } else {
+                                    GlassSpecularBorderBrush
+                                },
+                                shape = RoundedCornerShape(999.dp)
+                            )
+                            .clickable { onToggleAgeBalloonClick() }
+                            .padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "🎈 Yaş Balonu",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (state.isAgeBalloonVisible) Color(0xFF38BDF8) else TextSecondary
+                        )
+
+                        // Smooth Capsule Switch Track & Moving Thumb
+                        Box(
+                            modifier = Modifier
+                                .width(30.dp)
+                                .height(16.dp)
+                                .clip(CircleShape)
+                                .background(if (state.isAgeBalloonVisible) Color(0xFF38BDF8) else Color(0xFF334155))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = ageBalloonThumbOffset, top = 2.dp)
                                     .size(12.dp)
                                     .clip(CircleShape)
                                     .background(Color.White)

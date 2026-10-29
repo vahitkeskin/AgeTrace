@@ -62,7 +62,8 @@ fun FaceOverlayCanvas(
     imageHeight: Int,
     selectedFace: DetectedFace?,
     onFaceClick: (DetectedFace) -> Unit,
-    isScanning: Boolean = false
+    isScanning: Boolean = false,
+    isAgeBalloonVisible: Boolean = true
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "scanning_line")
     val scanProgress by infiniteTransition.animateFloat(
@@ -218,141 +219,143 @@ fun FaceOverlayCanvas(
                 }
 
                 // Frosted Glassmorphic Speech Balloon placed gracefully ABOVE the face box
-                val isSelected = (face.id == selectedFace?.id)
+                if (isAgeBalloonVisible) {
+                    val isSelected = (face.id == selectedFace?.id)
 
-                val minBalloonWPx = with(density) { 64.dp.toPx() }
-                val maxBalloonWPx = with(density) { 100.dp.toPx() }
-                val balloonWidthPx = (fwPx * 0.90f).coerceIn(minBalloonWPx, maxBalloonWPx)
-                val balloonWidthDp = with(density) { balloonWidthPx.toDp() }
+                    val minBalloonWPx = with(density) { 64.dp.toPx() }
+                    val maxBalloonWPx = with(density) { 100.dp.toPx() }
+                    val balloonWidthPx = (fwPx * 0.90f).coerceIn(minBalloonWPx, maxBalloonWPx)
+                    val balloonWidthDp = with(density) { balloonWidthPx.toDp() }
 
-                val faceCenterX = fxPx + fwPx / 2f
-                val balloonXPx = (faceCenterX - balloonWidthPx / 2f).coerceIn(
-                    0f,
-                    (containerWidthPx - balloonWidthPx).coerceAtLeast(0f)
-                )
-
-                val thresholdWPx = with(density) { 48.dp.toPx() }
-                val cornerRadiusDp = if (balloonWidthPx < thresholdWPx) 6.dp else 8.dp
-                val cornerRadiusPx = with(density) { cornerRadiusDp.toPx() }
-                val arrowWidthDp = if (balloonWidthPx < thresholdWPx) 8.dp else 10.dp
-                val arrowWidthPx = with(density) { arrowWidthDp.toPx() }
-                val arrowHeightDp = 4.dp
-                val arrowHeightPx = with(density) { arrowHeightDp.toPx() }
-
-                val arrowXPx = (faceCenterX - balloonXPx).coerceIn(
-                    cornerRadiusPx + arrowWidthPx / 2f,
-                    (balloonWidthPx - cornerRadiusPx - arrowWidthPx / 2f).coerceAtLeast(cornerRadiusPx + arrowWidthPx / 2f)
-                )
-
-                val balloonHeightDp = 26.dp
-                val balloonHeightPx = with(density) { balloonHeightDp.toPx() }
-
-                val balloonSpacingPx = with(density) { 3.dp.toPx() }
-                val hasRoomAbove = (fyPx >= balloonHeightPx + balloonSpacingPx + 2f)
-                val isBelow = !hasRoomAbove
-                val balloonYPx = if (hasRoomAbove) {
-                    fyPx - balloonHeightPx - balloonSpacingPx
-                } else {
-                    fyPx + fhPx + balloonSpacingPx
-                }
-
-                val balloonShape = remember(arrowWidthPx, arrowHeightPx, arrowXPx, isBelow, cornerRadiusPx) {
-                    BalloonShape(
-                        arrowWidth = arrowWidthPx,
-                        arrowHeight = arrowHeightPx,
-                        arrowX = arrowXPx,
-                        isBelow = isBelow,
-                        cornerRadius = cornerRadiusPx
+                    val faceCenterX = fxPx + fwPx / 2f
+                    val balloonXPx = (faceCenterX - balloonWidthPx / 2f).coerceIn(
+                        0f,
+                        (containerWidthPx - balloonWidthPx).coerceAtLeast(0f)
                     )
-                }
 
-                val textMeasurer = rememberTextMeasurer()
+                    val thresholdWPx = with(density) { 48.dp.toPx() }
+                    val cornerRadiusDp = if (balloonWidthPx < thresholdWPx) 6.dp else 8.dp
+                    val cornerRadiusPx = with(density) { cornerRadiusDp.toPx() }
+                    val arrowWidthDp = if (balloonWidthPx < thresholdWPx) 8.dp else 10.dp
+                    val arrowWidthPx = with(density) { arrowWidthDp.toPx() }
+                    val arrowHeightDp = 4.dp
+                    val arrowHeightPx = with(density) { arrowHeightDp.toPx() }
 
-                Box(
-                    modifier = Modifier
-                        .offset { IntOffset(balloonXPx.roundToInt(), balloonYPx.roundToInt()) }
-                        .width(balloonWidthDp)
-                        .height(balloonHeightDp)
-                        .shadow(
-                            elevation = if (isSelected) 8.dp else 4.dp,
-                            shape = balloonShape,
-                            spotColor = if (isSelected) Color(0xFF38BDF8) else Color.Black
+                    val arrowXPx = (faceCenterX - balloonXPx).coerceIn(
+                        cornerRadiusPx + arrowWidthPx / 2f,
+                        (balloonWidthPx - cornerRadiusPx - arrowWidthPx / 2f).coerceAtLeast(cornerRadiusPx + arrowWidthPx / 2f)
+                    )
+
+                    val balloonHeightDp = 26.dp
+                    val balloonHeightPx = with(density) { balloonHeightDp.toPx() }
+
+                    val balloonSpacingPx = with(density) { 3.dp.toPx() }
+                    val hasRoomAbove = (fyPx >= balloonHeightPx + balloonSpacingPx + 2f)
+                    val isBelow = !hasRoomAbove
+                    val balloonYPx = if (hasRoomAbove) {
+                        fyPx - balloonHeightPx - balloonSpacingPx
+                    } else {
+                        fyPx + fhPx + balloonSpacingPx
+                    }
+
+                    val balloonShape = remember(arrowWidthPx, arrowHeightPx, arrowXPx, isBelow, cornerRadiusPx) {
+                        BalloonShape(
+                            arrowWidth = arrowWidthPx,
+                            arrowHeight = arrowHeightPx,
+                            arrowX = arrowXPx,
+                            isBelow = isBelow,
+                            cornerRadius = cornerRadiusPx
                         )
-                        .background(
-                            brush = Brush.verticalGradient(
-                                listOf(
-                                    Color(0xE61E293B),
-                                    Color(0xB30F172A)
-                                )
-                            ),
-                            shape = balloonShape
-                        )
-                        .border(
-                            width = if (isSelected) 1.5.dp else 1.dp,
-                            brush = if (isSelected) {
-                                Brush.verticalGradient(
-                                    listOf(Color(0xFF38BDF8), Color(0x66818CF8))
-                                )
-                            } else {
-                                Brush.verticalGradient(
+                    }
+
+                    val textMeasurer = rememberTextMeasurer()
+
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset(balloonXPx.roundToInt(), balloonYPx.roundToInt()) }
+                            .width(balloonWidthDp)
+                            .height(balloonHeightDp)
+                            .shadow(
+                                elevation = if (isSelected) 8.dp else 4.dp,
+                                shape = balloonShape,
+                                spotColor = if (isSelected) Color(0xFF38BDF8) else Color.Black
+                            )
+                            .background(
+                                brush = Brush.verticalGradient(
                                     listOf(
-                                        Color(0x80FFFFFF),
-                                        Color(0x2638BDF8),
-                                        Color(0x14FFFFFF)
+                                        Color(0xE61E293B),
+                                        Color(0xB30F172A)
                                     )
-                                )
-                            },
-                            shape = balloonShape
-                        )
-                        .clip(balloonShape)
-                        .clickable { onFaceClick(face) }
-                        .padding(
-                            start = 8.dp,
-                            end = 8.dp,
-                            top = if (isBelow) arrowHeightDp + 1.dp else 1.dp,
-                            bottom = if (!isBelow) arrowHeightDp + 1.dp else 1.dp
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    BoxWithConstraints(
-                        modifier = Modifier.fillMaxSize(),
+                                ),
+                                shape = balloonShape
+                            )
+                            .border(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                brush = if (isSelected) {
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xFF38BDF8), Color(0x66818CF8))
+                                    )
+                                } else {
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            Color(0x80FFFFFF),
+                                            Color(0x2638BDF8),
+                                            Color(0x14FFFFFF)
+                                        )
+                                    )
+                                },
+                                shape = balloonShape
+                            )
+                            .clip(balloonShape)
+                            .clickable { onFaceClick(face) }
+                            .padding(
+                                start = 8.dp,
+                                end = 8.dp,
+                                top = if (isBelow) arrowHeightDp + 1.dp else 1.dp,
+                                bottom = if (!isBelow) arrowHeightDp + 1.dp else 1.dp
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
-                        val availWPx = constraints.maxWidth.toFloat()
-                        val availHPx = constraints.maxHeight.toFloat()
-                        val ageText = "${face.estimatedAge} Age"
+                        BoxWithConstraints(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val availWPx = constraints.maxWidth.toFloat()
+                            val availHPx = constraints.maxHeight.toFloat()
+                            val ageText = "${face.estimatedAge} Age"
 
-                        val dynFontSize = remember(ageText, availWPx, availHPx) {
-                            val safeW = (availWPx - 4f).coerceAtLeast(10f)
-                            val safeH = (availHPx - 4f).coerceAtLeast(10f)
-                            var curSp = 12f
-                            while (curSp > 6.5f) {
-                                val measured = textMeasurer.measure(
-                                    text = AnnotatedString(ageText),
-                                    style = TextStyle(
-                                        fontSize = curSp.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Default
-                                    ),
-                                    maxLines = 1
-                                )
-                                if (measured.size.width <= safeW && measured.size.height <= safeH) {
-                                    break
+                            val dynFontSize = remember(ageText, availWPx, availHPx) {
+                                val safeW = (availWPx - 4f).coerceAtLeast(10f)
+                                val safeH = (availHPx - 4f).coerceAtLeast(10f)
+                                var curSp = 12f
+                                while (curSp > 6.5f) {
+                                    val measured = textMeasurer.measure(
+                                        text = AnnotatedString(ageText),
+                                        style = TextStyle(
+                                            fontSize = curSp.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Default
+                                        ),
+                                        maxLines = 1
+                                    )
+                                    if (measured.size.width <= safeW && measured.size.height <= safeH) {
+                                        break
+                                    }
+                                    curSp -= 0.5f
                                 }
-                                curSp -= 0.5f
+                                curSp.sp
                             }
-                            curSp.sp
-                        }
 
-                        Text(
-                            text = ageText,
-                            color = Color.White,
-                            fontSize = dynFontSize,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false,
-                            textAlign = TextAlign.Center
-                        )
+                            Text(
+                                text = ageText,
+                                color = Color.White,
+                                fontSize = dynFontSize,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }

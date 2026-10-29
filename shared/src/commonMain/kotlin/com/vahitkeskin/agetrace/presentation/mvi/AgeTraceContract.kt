@@ -20,6 +20,7 @@ object AgeTraceContract {
         val blurredDisplayBitmap: ImageBitmap? = null,
         val displayBitmap: ImageBitmap? = null,
         val isMinorBlurEnabled: Boolean = false,
+        val isAgeBalloonVisible: Boolean = true,
         val detectedFaces: List<DetectedFace> = emptyList(),
         val selectedFace: DetectedFace? = null,
         val metrics: AnalysisMetrics = AnalysisMetrics(),
@@ -39,6 +40,7 @@ object AgeTraceContract {
                 blurredDisplayBitmap == other.blurredDisplayBitmap &&
                 displayBitmap == other.displayBitmap &&
                 isMinorBlurEnabled == other.isMinorBlurEnabled &&
+                isAgeBalloonVisible == other.isAgeBalloonVisible &&
                 detectedFaces == other.detectedFaces &&
                 selectedFace == other.selectedFace &&
                 metrics == other.metrics &&
@@ -63,6 +65,7 @@ object AgeTraceContract {
         data object RerunAnalysis : Intent
         data object RotateCurrentImage : Intent
         data object ToggleMinorBlur : Intent
+        data object ToggleAgeBalloon : Intent
     }
 
     sealed interface Effect {

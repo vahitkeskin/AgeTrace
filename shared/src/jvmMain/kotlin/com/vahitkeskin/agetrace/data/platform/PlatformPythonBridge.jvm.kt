@@ -28,7 +28,10 @@ actual object PlatformPythonBridge {
                 File("python/age_trace_detector.py"),
                 File("../python/age_trace_detector.py"),
                 File("AgeTrace/python/age_trace_detector.py"),
-                File(userHome, "AndroidStudioProjects/AgeTrace/python/age_trace_detector.py")
+                File(userHome, "AndroidStudioProjects/AgeTrace/python/age_trace_detector.py"),
+                File(userDir, "python/age_trace_ai.py"),
+                File(userDir, "../python/age_trace_ai.py"),
+                File("python/age_trace_ai.py")
             )
             val scriptFile = candidatePaths.find { it.exists() && it.isFile }
                 ?: File("/Users/vahitkeskin/AndroidStudioProjects/AgeTrace/python/age_trace_detector.py")

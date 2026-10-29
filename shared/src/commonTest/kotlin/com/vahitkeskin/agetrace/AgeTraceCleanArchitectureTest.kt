@@ -183,4 +183,12 @@ class AgeTraceCleanArchitectureTest {
             assertTrue(face.badgeLabel.contains("Age"), "Badge must contain Age keyword")
         }
     }
+
+    @Test
+    fun testToggleAgeBalloonState() {
+        val state = com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract.State()
+        assertTrue(state.isAgeBalloonVisible, "Age balloon should be visible by default")
+        val toggled = state.copy(isAgeBalloonVisible = !state.isAgeBalloonVisible)
+        assertTrue(!toggled.isAgeBalloonVisible, "Age balloon should toggle to false")
+    }
 }

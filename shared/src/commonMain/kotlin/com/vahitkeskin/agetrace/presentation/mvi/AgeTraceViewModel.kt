@@ -176,6 +176,12 @@ class AgeTraceViewModel(
                 }
             }
 
+            AgeTraceContract.Intent.ToggleAgeBalloon -> {
+                _state.update {
+                    it.copy(isAgeBalloonVisible = !it.isAgeBalloonVisible)
+                }
+            }
+
             AgeTraceContract.Intent.ClearCurrentAnalysis -> {
                 stopCameraStream()
                 _state.update {
