@@ -1,5 +1,6 @@
 package com.vahitkeskin.agetrace
 
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -17,7 +18,8 @@ fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         state = windowState,
-        title = "AgeTrace • Edge AI Biyometrik Yüz & Yaş Analiz Sistemi"
+        title = "AgeTrace • Edge AI Biyometrik Yüz & Yaş Analiz Sistemi",
+        icon = painterResource("icons/icon.png")
     ) {
         window.minimumSize = Dimension(720, 600)
         App()

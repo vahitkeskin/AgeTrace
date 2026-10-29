@@ -23,6 +23,16 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "com.vahitkeskin.agetrace"
             packageVersion = "1.0.0"
+
+            macOS {
+                iconFile.set(project.file("src/main/resources/icons/icon.icns"))
+            }
+            windows {
+                iconFile.set(project.file("src/main/resources/icons/icon.ico"))
+            }
+            linux {
+                iconFile.set(project.file("src/main/resources/icons/icon.png"))
+            }
         }
     }
 }
