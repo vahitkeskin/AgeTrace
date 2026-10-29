@@ -1,6 +1,7 @@
 package com.vahitkeskin.agetrace.presentation.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -133,7 +134,8 @@ fun AgeTraceScreen(
                                     .weight(1f),
                                 state = state,
                                 onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
-                                onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) }
+                                onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
+                                onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) }
                             )
 
                             if (state.detectedFaces.isNotEmpty()) {
@@ -181,7 +183,8 @@ fun AgeTraceScreen(
                                 .height(360.dp),
                             state = state,
                             onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
-                            onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) }
+                            onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
+                            onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) }
                         )
 
                         // Head Avatars Strip positioned directly above the File Upload Card
@@ -335,7 +338,8 @@ private fun MainViewport(
     modifier: Modifier = Modifier,
     state: AgeTraceContract.State,
     onFaceClick: (com.vahitkeskin.agetrace.domain.model.DetectedFace) -> Unit,
-    onRotateClick: () -> Unit
+    onRotateClick: () -> Unit,
+    onToggleBlurClick: () -> Unit
 ) {
     GlassmorphicCard(
         modifier = modifier,
@@ -368,22 +372,77 @@ private fun MainViewport(
                     isScanning = state.isCameraStreaming || state.isAnalyzing
                 )
 
-                // Sleek Floating Rotate Button (Top-Right)
-                Box(
+                // Sleek Floating Controls (Top-Right): Reşit Değil Blur Switch + Rotate Button
+                Row(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(10.dp)
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xD90F172A))
-                        .border(1.dp, Color(0x33FFFFFF), CircleShape)
-                        .clickable { onRotateClick() },
-                    contentAlignment = Alignment.Center
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "🔄",
-                        fontSize = 15.sp
+                    // Glassmorphic Switch Button for Minor Face Blur
+                    val thumbOffset by animateDpAsState(
+                        targetValue = if (state.isMinorBlurEnabled) 15.dp else 2.dp,
+                        label = "minor_blur_switch"
                     )
+
+                    Row(
+                        modifier = Modifier
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(
+                                if (state.isMinorBlurEnabled) Color(0xD9064E3B) else Color(0xD90F172A)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (state.isMinorBlurEnabled) Color(0x9934D399) else Color(0x33FFFFFF),
+                                shape = RoundedCornerShape(18.dp)
+                            )
+                            .clickable { onToggleBlurClick() }
+                            .padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = if (state.isMinorBlurEnabled) "🛡️ Reşit Değil" else "👁️ Reşit Değil",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (state.isMinorBlurEnabled) Color(0xFF34D399) else Color(0xFFCBD5E1)
+                        )
+
+                        // Pill Switch Track & Moving Thumb
+                        Box(
+                            modifier = Modifier
+                                .width(32.dp)
+                                .height(18.dp)
+                                .clip(CircleShape)
+                                .background(if (state.isMinorBlurEnabled) Color(0xFF10B981) else Color(0xFF334155))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = thumbOffset, top = 2.dp)
+                                    .size(14.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                            )
+                        }
+                    }
+
+                    // Sleek Floating Rotate Button
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xD90F172A))
+                            .border(1.dp, Color(0x33FFFFFF), CircleShape)
+                            .clickable { onRotateClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "🔄",
+                            fontSize = 15.sp
+                        )
+                    }
                 }
             }
         } else {

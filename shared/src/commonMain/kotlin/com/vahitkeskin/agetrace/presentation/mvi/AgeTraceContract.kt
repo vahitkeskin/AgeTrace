@@ -16,7 +16,10 @@ object AgeTraceContract {
         val currentImageSource: ImageSource? = null,
         val currentImageBytes: ByteArray? = null,
         val pixelBuffer: PixelBuffer? = null,
+        val cleanDisplayBitmap: ImageBitmap? = null,
+        val blurredDisplayBitmap: ImageBitmap? = null,
         val displayBitmap: ImageBitmap? = null,
+        val isMinorBlurEnabled: Boolean = false,
         val detectedFaces: List<DetectedFace> = emptyList(),
         val selectedFace: DetectedFace? = null,
         val metrics: AnalysisMetrics = AnalysisMetrics(),
@@ -32,7 +35,10 @@ object AgeTraceContract {
                 selectedEngine == other.selectedEngine &&
                 currentImageSource == other.currentImageSource &&
                 pixelBuffer == other.pixelBuffer &&
+                cleanDisplayBitmap == other.cleanDisplayBitmap &&
+                blurredDisplayBitmap == other.blurredDisplayBitmap &&
                 displayBitmap == other.displayBitmap &&
+                isMinorBlurEnabled == other.isMinorBlurEnabled &&
                 detectedFaces == other.detectedFaces &&
                 selectedFace == other.selectedFace &&
                 metrics == other.metrics &&
@@ -56,6 +62,7 @@ object AgeTraceContract {
         data object ClearCurrentAnalysis : Intent
         data object RerunAnalysis : Intent
         data object RotateCurrentImage : Intent
+        data object ToggleMinorBlur : Intent
     }
 
     sealed interface Effect {
