@@ -92,6 +92,12 @@ class AgeTraceViewModel(
                 }
             }
 
+            AgeTraceContract.Intent.TriggerCameraPicker -> {
+                viewModelScope.launch {
+                    _effects.emit(AgeTraceContract.Effect.OpenNativeCameraPicker)
+                }
+            }
+
             AgeTraceContract.Intent.ToggleCameraStream -> {
                 if (_state.value.isCameraStreaming) {
                     stopCameraStream()

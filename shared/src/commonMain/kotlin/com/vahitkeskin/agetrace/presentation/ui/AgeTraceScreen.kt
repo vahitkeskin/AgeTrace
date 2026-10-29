@@ -66,6 +66,7 @@ import com.vahitkeskin.agetrace.presentation.ui.components.FaceOverlayCanvas
 import com.vahitkeskin.agetrace.presentation.ui.components.FileUploadDropZone
 import com.vahitkeskin.agetrace.presentation.ui.components.MetricsSidePanel
 import com.vahitkeskin.agetrace.presentation.ui.components.PlatformBackHandler
+import com.vahitkeskin.agetrace.presentation.ui.components.rememberCameraCaptureLauncher
 import com.vahitkeskin.agetrace.presentation.ui.components.rememberGalleryPickerLauncher
 
 /**
@@ -92,11 +93,19 @@ fun AgeTraceScreen(
         viewModel.handleIntent(AgeTraceContract.Intent.OnFileUploaded(name, bytes))
     }
 
+    // Multiplatform Native Camera Launcher with Runtime Permission Dialog
+    val cameraLauncher = rememberCameraCaptureLauncher { name, bytes ->
+        viewModel.handleIntent(AgeTraceContract.Intent.OnFileUploaded(name, bytes))
+    }
+
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 AgeTraceContract.Effect.OpenNativeFilePicker -> {
                     galleryLauncher()
+                }
+                AgeTraceContract.Effect.OpenNativeCameraPicker -> {
+                    cameraLauncher()
                 }
                 is AgeTraceContract.Effect.Notify -> {
                     // Feedback notification
@@ -126,6 +135,7 @@ fun AgeTraceScreen(
                 selectedMode = state.selectedMode,
                 isCameraStreaming = state.isCameraStreaming,
                 onModeChange = { mode -> viewModel.handleIntent(AgeTraceContract.Intent.ChangeMode(mode)) },
+                onCameraClick = { cameraLauncher() },
                 onClearClick = { viewModel.handleIntent(AgeTraceContract.Intent.ClearCurrentAnalysis) }
             )
 
@@ -157,7 +167,8 @@ fun AgeTraceScreen(
                                 onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
                                 onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) },
                                 onToggleAgeBalloonClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAgeBalloon) },
-                                onPickFileClick = { galleryLauncher() }
+                                onPickFileClick = { galleryLauncher() },
+                                onCameraClick = { cameraLauncher() }
                             )
 
                             if (state.detectedFaces.isNotEmpty()) {
@@ -176,6 +187,7 @@ fun AgeTraceScreen(
                                     sampleFaces = state.sampleFaces,
                                     currentImageSource = state.currentImageSource,
                                     onPickFileClick = { galleryLauncher() },
+                                    onCameraClick = { cameraLauncher() },
                                     onSelectSample = { sample -> viewModel.handleIntent(AgeTraceContract.Intent.SelectSample(sample)) }
                                 )
                             }
@@ -208,7 +220,8 @@ fun AgeTraceScreen(
                             onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
                             onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) },
                             onToggleAgeBalloonClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAgeBalloon) },
-                            onPickFileClick = { galleryLauncher() }
+                            onPickFileClick = { galleryLauncher() },
+                            onCameraClick = { cameraLauncher() }
                         )
 
                         if (state.detectedFaces.isNotEmpty()) {
@@ -227,6 +240,7 @@ fun AgeTraceScreen(
                                 sampleFaces = state.sampleFaces,
                                 currentImageSource = state.currentImageSource,
                                 onPickFileClick = { galleryLauncher() },
+                                onCameraClick = { cameraLauncher() },
                                 onSelectSample = { sample -> viewModel.handleIntent(AgeTraceContract.Intent.SelectSample(sample)) }
                             )
                         }
@@ -254,6 +268,7 @@ private fun MinimalHeader(
     selectedMode: DetectionMode,
     isCameraStreaming: Boolean,
     onModeChange: (DetectionMode) -> Unit,
+    onCameraClick: () -> Unit,
     onClearClick: () -> Unit
 ) {
     GlassmorphicCard(
@@ -353,7 +368,13 @@ private fun MinimalHeader(
                                         Modifier.border(1.dp, AccentBlue.copy(alpha = 0.5f), RoundedCornerShape(999.dp))
                                     } else Modifier
                                 )
-                                .clickable { onModeChange(mode) }
+                                .clickable {
+                                    if (mode == DetectionMode.LIVE_CAMERA) {
+                                        onCameraClick()
+                                    } else {
+                                        onModeChange(mode)
+                                    }
+                                }
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -400,7 +421,8 @@ private fun MainViewport(
     onRotateClick: () -> Unit,
     onToggleBlurClick: () -> Unit,
     onToggleAgeBalloonClick: () -> Unit,
-    onPickFileClick: () -> Unit
+    onPickFileClick: () -> Unit,
+    onCameraClick: () -> Unit
 ) {
     GlassmorphicCard(
         modifier = modifier,
@@ -632,24 +654,49 @@ private fun MainViewport(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Polite Action Button inside empty state
-                    GlassmorphicPill(
-                        isSelected = true,
-                        selectedColor = AccentBlue,
-                        onClick = onPickFileClick
+                    // Polite Action Buttons inside empty state: [ 📷 Fotoğraf Çek ] [ 🖼️ Galeri ]
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        GlassmorphicPill(
+                            isSelected = true,
+                            selectedColor = AccentBlue,
+                            onClick = onCameraClick
                         ) {
-                            Text(text = "✦", color = AccentBlue, fontSize = 12.sp)
-                            Text(
-                                text = "Fotoğraf Seç",
-                                color = TextPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(text = "📷", fontSize = 13.sp)
+                                Text(
+                                    text = "Fotoğraf Çek",
+                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        GlassmorphicPill(
+                            isSelected = false,
+                            selectedColor = AccentBlue,
+                            onClick = onPickFileClick
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(text = "🖼️", fontSize = 13.sp)
+                                Text(
+                                    text = "Galeri",
+                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
                 }

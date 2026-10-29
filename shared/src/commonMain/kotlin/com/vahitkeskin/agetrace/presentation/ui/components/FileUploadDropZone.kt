@@ -39,47 +39,80 @@ fun FileUploadDropZone(
     sampleFaces: List<ImageSource.PreloadedSample>,
     currentImageSource: ImageSource?,
     onPickFileClick: () -> Unit,
+    onCameraClick: () -> Unit,
     onSelectSample: (ImageSource.PreloadedSample) -> Unit
 ) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // 1. Primary Frosted Glass Upload Bar
-        GlassmorphicCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .clickable { onPickFileClick() },
-            cornerRadius = 16.dp,
-            borderBrush = GlassSpecularBorderBrush
+        // 1. Dual Frosted Glass Action Bar: [ 📷 Fotoğraf Çek • Kamera ] [ 🖼️ Görsel Seç • Galeri ]
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
+            GlassmorphicCard(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { onCameraClick() },
+                cornerRadius = 16.dp,
+                borderBrush = GlassSpecularBorderBrush
             ) {
-                Text(
-                    text = "🖼️",
-                    fontSize = 15.sp
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "Fotoğraf Seç veya Yükle",
-                    color = TextPrimary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.2.sp
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "• Galeri",
-                    color = TextMuted,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Normal
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(text = "📷", fontSize = 15.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Fotoğraf Çek",
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "• Kamera",
+                        color = TextMuted,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+
+            GlassmorphicCard(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { onPickFileClick() },
+                cornerRadius = 16.dp,
+                borderBrush = GlassSpecularBorderBrush
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(text = "🖼️", fontSize = 15.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Görsel Seç",
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "• Galeri",
+                        color = TextMuted,
+                        fontSize = 11.sp
+                    )
+                }
             }
         }
 

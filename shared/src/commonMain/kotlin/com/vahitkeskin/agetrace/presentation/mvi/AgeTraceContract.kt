@@ -59,6 +59,7 @@ object AgeTraceContract {
         data class SelectSample(val sample: ImageSource.PreloadedSample) : Intent
         data class OnFileUploaded(val name: String, val bytes: ByteArray) : Intent
         data object TriggerFilePicker : Intent
+        data object TriggerCameraPicker : Intent
         data object ToggleCameraStream : Intent
         data class SelectFace(val face: DetectedFace) : Intent
         data object ClearCurrentAnalysis : Intent
@@ -70,6 +71,7 @@ object AgeTraceContract {
 
     sealed interface Effect {
         data object OpenNativeFilePicker : Effect
+        data object OpenNativeCameraPicker : Effect
         data class Notify(val message: String) : Effect
     }
 }
