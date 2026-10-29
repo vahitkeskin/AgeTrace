@@ -148,12 +148,12 @@ def calibrate_face_age(
         # If at least half or 3+ are children, this is a children group photo
         if child_like_count >= 3 or child_like_count >= (len(all_faces) // 2):
             is_cohort = True
-            median_y = float(np.median(all_ys))
-            # Supervisor / Teacher: adult standing in the background (higher up than the children cohort)
-            # Distinct from foreground / middle row children
-            is_back_position = (y1 < median_y - 22.0 and y1 > 60.0)
-            is_adult_morph = (philtrum_ratio >= 0.50 and midface_ratio >= 1.01)
-            if is_back_position and is_adult_morph and raw_age >= 24.0:
+            median_y_rel = float(np.median(all_ys)) / max(1.0, float(ih))
+            y_rel = y1 / max(1.0, float(ih))
+            # Supervisor / Teacher: standing in the background (higher up than children median by >= 4%)
+            # and exhibiting adult philtrum (>= 0.47, whereas school children are <= 0.42)
+            is_back_position = (median_y_rel - y_rel > 0.04)
+            if (is_back_position or philtrum_ratio >= 0.50) and philtrum_ratio >= 0.47 and raw_age >= 19.0:
                 is_cohort_supervisor = True
 
     # 4. Biological Craniofacial & Texture Classification
@@ -164,7 +164,7 @@ def calibrate_face_age(
         
     # TIER B: Adult Teacher / Supervisor in a Group Cohort
     elif is_cohort and is_cohort_supervisor:
-        calibrated_age = int(round(max(34.0, min(48.0, raw_age + 4.0))))
+        calibrated_age = int(round(max(34.0, min(48.0, raw_age + 10.0 if raw_age < 26.0 else (raw_age + 5.0 if raw_age < 32.0 else raw_age + 2.0)))))
         classification = "18+ Adult"
         
     # TIER C: Infant / Toddler (1 - 4 years)
@@ -175,7 +175,8 @@ def calibrate_face_age(
         classification = "18- Minor"
         
     # TIER D: School Children in a Cohort (Classroom / Choir)
-    elif is_cohort and not is_cohort_supervisor and raw_age <= 40.0:
+    # Excludes adult supervisors by strictly enforcing compact child philtrum (< 0.47)
+    elif is_cohort and not is_cohort_supervisor and philtrum_ratio < 0.47 and raw_age <= 40.0:
         norm_r = (midface_ratio - 0.88) / (1.04 - 0.88)
         norm_r = max(0.0, min(1.0, norm_r))
         calibrated_age = int(round(8.0 + norm_r * 2.0)) # 8, 9, 10
@@ -365,6 +366,9 @@ def run_server(port: int = 8080):
                         pass
 
                 result = analyze_image_bytes(image_bytes)
+                print(f"[Detect] Processed {result.get('faces_count', 0)} faces in {result.get('inference_time_ms', 0)}ms", file=sys.stderr)
+                for f in result.get("faces", []):
+                    print(f"   -> Face {f['id']}: age={f['age']}, class={f['classification']}, conf={f['confidence']}, bbox=({f['bbox']['x']:.2f},{f['bbox']['y']:.2f})", file=sys.stderr)
                 self.send_response(200 if result.get("success") else 400)
                 self.send_header("Content-Type", "application/json")
                 self._send_cors()

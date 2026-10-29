@@ -638,8 +638,8 @@ def calibrate_insightface_age(cv_img, bbox, kps, gender, raw_age: float, face_an
 
     # School Child (Ages 7 - 11): Compact midface ratio, compact philtrum, youthful cheeks
     # Scale-invariant: never relies on absolute pixel width 'w'
-    is_adult_woman_morph = (gender == 0 and philtrum_ratio >= 0.52 and midface_ratio >= 1.01 and raw_age >= 24.0)
-    if not is_adult_woman_morph and (philtrum_ratio < 0.50 or midface_ratio <= 1.01) and raw_age <= 38.0:
+    is_adult_woman_morph = (gender == 0 and philtrum_ratio >= 0.48 and raw_age >= 20.0)
+    if not is_adult_woman_morph and philtrum_ratio < 0.47 and raw_age <= 38.0:
         norm_r = (midface_ratio - 0.88) / (1.04 - 0.88)
         norm_r = max(0.0, min(1.0, norm_r))
         calibrated = int(round(8.0 + norm_r * 2.0))
