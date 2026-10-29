@@ -191,4 +191,42 @@ class AgeTraceCleanArchitectureTest {
         val toggled = state.copy(isAgeBalloonVisible = !state.isAgeBalloonVisible)
         assertTrue(!toggled.isAgeBalloonVisible, "Age balloon should toggle to false")
     }
+
+    @Test
+    fun testInitialStateIsEmptyWithoutDefaultImage() {
+        val state = com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract.State()
+        assertEquals(null, state.displayBitmap, "Initial state must have null displayBitmap (empty image area)")
+        assertEquals(null, state.pixelBuffer, "Initial state must have null pixelBuffer")
+        assertEquals(null, state.currentImageSource, "Initial state must have null currentImageSource")
+        assertTrue(state.detectedFaces.isEmpty(), "Initial state must have empty detectedFaces")
+    }
+
+    @Test
+    fun testClearImageBackNavigationBehavior() {
+        val face = DetectedFace(
+            id = "face_test",
+            boundingBox = BoundingBox(0.1f, 0.1f, 0.4f, 0.4f),
+            confidenceScore = 0.9f,
+            estimatedAge = 25,
+            classification = AgeClassification.YOUNG_ADULT,
+            biometrics = FacialBiometrics(0.8f, 0.2f, 0.2f, 0.9f, Pair(100f, 100f))
+        )
+        val loadedState = com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract.State(
+            detectedFaces = listOf(face),
+            selectedFace = face
+        )
+        val hasActiveImage = loadedState.displayBitmap != null || loadedState.currentImageSource != null || loadedState.detectedFaces.isNotEmpty()
+        assertTrue(hasActiveImage, "BackHandler should be enabled when an image or detected faces are present")
+
+        val clearedState = loadedState.copy(
+            displayBitmap = null,
+            pixelBuffer = null,
+            currentImageSource = null,
+            currentImageBytes = null,
+            detectedFaces = emptyList(),
+            selectedFace = null
+        )
+        val hasActiveImageAfterClear = clearedState.displayBitmap != null || clearedState.currentImageSource != null || clearedState.detectedFaces.isNotEmpty()
+        assertTrue(!hasActiveImageAfterClear, "BackHandler should be disabled when image area is empty, enabling system app exit")
+    }
 }

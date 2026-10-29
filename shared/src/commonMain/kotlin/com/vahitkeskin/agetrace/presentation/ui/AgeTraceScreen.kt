@@ -60,9 +60,12 @@ import com.vahitkeskin.agetrace.presentation.theme.TextMuted
 import com.vahitkeskin.agetrace.presentation.theme.TextPrimary
 import com.vahitkeskin.agetrace.presentation.theme.TextSecondary
 import com.vahitkeskin.agetrace.presentation.ui.components.DetectedFaceAvatarsStrip
+import com.vahitkeskin.agetrace.presentation.ui.components.FacebookShimmerSkeletonViewport
+import com.vahitkeskin.agetrace.presentation.ui.components.FacebookShimmerViewportOverlay
 import com.vahitkeskin.agetrace.presentation.ui.components.FaceOverlayCanvas
 import com.vahitkeskin.agetrace.presentation.ui.components.FileUploadDropZone
 import com.vahitkeskin.agetrace.presentation.ui.components.MetricsSidePanel
+import com.vahitkeskin.agetrace.presentation.ui.components.PlatformBackHandler
 import com.vahitkeskin.agetrace.presentation.ui.components.rememberGalleryPickerLauncher
 
 /**
@@ -75,6 +78,14 @@ fun AgeTraceScreen(
     viewModel: AgeTraceViewModel = viewModel { AgeTraceViewModel() }
 ) {
     val state by viewModel.state.collectAsState()
+
+    // Android System Back Navigation Handler:
+    // If an image/analysis is active, first back press clears the image.
+    // If the image is already clear, back press is unhandled and allows normal app exit.
+    val hasActiveImage = state.displayBitmap != null || state.currentImageSource != null || state.detectedFaces.isNotEmpty()
+    PlatformBackHandler(enabled = hasActiveImage) {
+        viewModel.handleIntent(AgeTraceContract.Intent.ClearCurrentAnalysis)
+    }
 
     // Multiplatform Native Gallery Launcher (Android PhotoPicker, iOS Photos, Desktop FileDialog)
     val galleryLauncher = rememberGalleryPickerLauncher { name, bytes ->
@@ -428,6 +439,11 @@ private fun MainViewport(
                     isAgeBalloonVisible = state.isAgeBalloonVisible
                 )
 
+                // Wavy Facebook Shimmer overlay while re-analyzing or processing image
+                if (state.isAnalyzing) {
+                    FacebookShimmerViewportOverlay()
+                }
+
                 // Sleek Floating Controls (Top-Right): Reşit Değil Blur Switch + Yaş Balonu Switch + Rotate Button
                 Row(
                     modifier = Modifier
@@ -568,6 +584,9 @@ private fun MainViewport(
                     )
                 }
             }
+        } else if (state.isAnalyzing) {
+            // Wavy Facebook Shimmer effect while image is loading / analyzing
+            FacebookShimmerSkeletonViewport()
         } else {
             // Polite, Minimalist Frosted Empty State
             Box(

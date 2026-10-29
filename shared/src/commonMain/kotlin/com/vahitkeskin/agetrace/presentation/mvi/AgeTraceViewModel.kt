@@ -48,11 +48,6 @@ class AgeTraceViewModel(
             try {
                 val samples = getSampleFacesUseCase()
                 _state.update { it.copy(sampleFaces = samples) }
-
-                val defaultSample = samples.find { it.id == "sample_young_adult" } ?: samples.firstOrNull()
-                if (defaultSample != null) {
-                    processImageSource(defaultSample, defaultSample.bytes)
-                }
             } catch (e: Exception) {
                 _state.update { it.copy(errorMessage = "Başlangıç verisi yüklenemedi: ${e.message}") }
             }
