@@ -9,3 +9,4 @@ expect object PlatformOnnxEstimator {
     fun initModel(modelBytes: ByteArray): Boolean
     fun estimate(nchwFloats: FloatArray): Pair<Int, Float>?
 }
+

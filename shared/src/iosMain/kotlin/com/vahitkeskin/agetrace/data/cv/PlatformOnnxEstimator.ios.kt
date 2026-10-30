@@ -5,3 +5,4 @@ actual object PlatformOnnxEstimator {
     actual fun initModel(modelBytes: ByteArray): Boolean = false
     actual fun estimate(nchwFloats: FloatArray): Pair<Int, Float>? = null
 }
+

@@ -62,3 +62,4 @@ actual object PlatformOnnxEstimator {
         }
     }
 }
+
