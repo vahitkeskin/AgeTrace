@@ -33,7 +33,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -450,19 +449,11 @@ private fun MinimalHeader(
                 }
             }
 
-            // Action Controls: Spinner + Glass Mode Pill + Reset Button
+            // Action Controls: Glass Mode Pill + Reset Button
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (isAnalyzing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        color = AccentBlue,
-                        strokeWidth = 2.dp
-                    )
-                }
-
                 // Frosted Segmented Mode Pill [ Fotoğraf | Kamera ]
                 Row(
                     modifier = Modifier
