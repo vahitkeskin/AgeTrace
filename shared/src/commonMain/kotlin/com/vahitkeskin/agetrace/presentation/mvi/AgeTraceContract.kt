@@ -10,16 +10,24 @@ import com.vahitkeskin.agetrace.domain.model.VisionEngineType
 
 object AgeTraceContract {
 
+    enum class ExportFormat {
+        JPEG,
+        PNG
+    }
+
     data class State(
         val selectedMode: DetectionMode = DetectionMode.IMAGE_UPLOAD,
         val selectedEngine: VisionEngineType = VisionEngineType.PYTHON_CORE,
         val currentImageSource: ImageSource? = null,
         val currentImageBytes: ByteArray? = null,
         val pixelBuffer: PixelBuffer? = null,
+        val activePixelBuffer: PixelBuffer? = null,
         val cleanDisplayBitmap: ImageBitmap? = null,
         val blurredDisplayBitmap: ImageBitmap? = null,
         val displayBitmap: ImageBitmap? = null,
         val isMinorBlurEnabled: Boolean = false,
+        val isBlurAllEnabled: Boolean = false,
+        val blurredFaceIds: Set<String> = emptySet(),
         val isAgeBalloonVisible: Boolean = true,
         val detectedFaces: List<DetectedFace> = emptyList(),
         val selectedFace: DetectedFace? = null,
@@ -36,10 +44,13 @@ object AgeTraceContract {
                 selectedEngine == other.selectedEngine &&
                 currentImageSource == other.currentImageSource &&
                 pixelBuffer == other.pixelBuffer &&
+                activePixelBuffer == other.activePixelBuffer &&
                 cleanDisplayBitmap == other.cleanDisplayBitmap &&
                 blurredDisplayBitmap == other.blurredDisplayBitmap &&
                 displayBitmap == other.displayBitmap &&
                 isMinorBlurEnabled == other.isMinorBlurEnabled &&
+                isBlurAllEnabled == other.isBlurAllEnabled &&
+                blurredFaceIds == other.blurredFaceIds &&
                 isAgeBalloonVisible == other.isAgeBalloonVisible &&
                 detectedFaces == other.detectedFaces &&
                 selectedFace == other.selectedFace &&
@@ -66,6 +77,9 @@ object AgeTraceContract {
         data object RerunAnalysis : Intent
         data object RotateCurrentImage : Intent
         data object ToggleMinorBlur : Intent
+        data object ToggleAllBlur : Intent
+        data class ToggleFaceBlur(val faceId: String) : Intent
+        data class ExportCurrentImage(val format: ExportFormat) : Intent
         data object ToggleAgeBalloon : Intent
     }
 

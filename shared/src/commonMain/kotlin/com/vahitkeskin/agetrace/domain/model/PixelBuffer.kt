@@ -114,22 +114,24 @@ class PixelBuffer(
 
     /**
      * Applies a Google Maps Street View style soft elliptical Gaussian blur
-     * exclusively over the specified minor face bounding boxes.
-     * Adults and background outside the face ellipses remain completely untouched.
+     * exclusively over the specified face bounding boxes.
+     * Background outside the face ellipses remains completely untouched.
      */
-    fun withBlurredMinorFaces(minorBoxes: List<BoundingBox>): PixelBuffer {
-        if (minorBoxes.isEmpty()) return this
+    fun withBlurredFaces(boxes: List<BoundingBox>): PixelBuffer {
+        if (boxes.isEmpty()) return this
         return try {
             val outPixels = pixels.copyOf()
-            for (box in minorBoxes) {
+            for (box in boxes) {
                 applyGoogleMapsFaceBlur(box, outPixels)
             }
             PixelBuffer(width, height, outPixels)
         } catch (t: Throwable) {
-            println("PixelBuffer.withBlurredMinorFaces error: ${t.message}")
+            println("PixelBuffer.withBlurredFaces error: ${t.message}")
             this
         }
     }
+
+    fun withBlurredMinorFaces(minorBoxes: List<BoundingBox>): PixelBuffer = withBlurredFaces(minorBoxes)
 
     private fun applyGoogleMapsFaceBlur(box: BoundingBox, targetPixels: IntArray) {
         val boxW = box.normalizedWidth * width

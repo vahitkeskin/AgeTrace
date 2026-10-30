@@ -324,7 +324,7 @@ fun FaceOverlayCanvas(
                         ) {
                             val availWPx = constraints.maxWidth.toFloat()
                             val availHPx = constraints.maxHeight.toFloat()
-                            val ageText = "${face.estimatedAge} Age"
+                            val ageText = "${face.estimatedAge} Yaş"
 
                             val dynFontSize = remember(ageText, availWPx, availHPx) {
                                 val safeW = (availWPx - 4f).coerceAtLeast(10f)

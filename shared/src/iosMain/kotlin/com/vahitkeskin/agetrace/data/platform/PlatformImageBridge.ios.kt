@@ -21,4 +21,6 @@ actual object PlatformImageBridge {
     }
 
     actual fun readBytesFromPath(path: String): ByteArray? = null
+
+    actual fun saveImageToGallery(pixelBuffer: PixelBuffer, format: String): String? = null
 }

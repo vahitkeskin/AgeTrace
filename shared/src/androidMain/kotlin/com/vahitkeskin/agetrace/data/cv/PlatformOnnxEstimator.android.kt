@@ -3,6 +3,7 @@ package com.vahitkeskin.agetrace.data.cv
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import com.vahitkeskin.agetrace.data.platform.AppContextHolder
 import java.nio.FloatBuffer
 
 actual object PlatformOnnxEstimator {
@@ -10,7 +11,24 @@ actual object PlatformOnnxEstimator {
     private val env by lazy { OrtEnvironment.getEnvironment() }
     private var isInitialized = false
 
-    actual fun isSupported(): Boolean = isInitialized && session != null
+    private fun ensureInitialized() {
+        if (session != null) return
+        try {
+            val ctx = AppContextHolder.context
+            if (ctx != null) {
+                ctx.assets.open("genderage.onnx").use { input ->
+                    initModel(input.readBytes())
+                }
+            }
+        } catch (_: Throwable) {}
+    }
+
+    actual fun isSupported(): Boolean {
+        if (!isInitialized || session == null) {
+            ensureInitialized()
+        }
+        return isInitialized && session != null
+    }
 
     actual fun initModel(modelBytes: ByteArray): Boolean {
         return try {

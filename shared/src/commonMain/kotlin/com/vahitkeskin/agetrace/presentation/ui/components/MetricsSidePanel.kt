@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.domain.model.AgeClassification
@@ -135,7 +136,7 @@ fun MetricsSidePanel(
                 }
 
                 GlassmorphicBadge(
-                    text = "${classification.title} (${classification.rangeLabel})",
+                    text = classification.title,
                     accentColor = themeColor
                 )
             }
@@ -165,12 +166,24 @@ fun MetricsSidePanel(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text(
-                            text = "Tahmini Yaş",
-                            color = TextMuted,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Tahmini Yaş",
+                                color = TextMuted,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "• ${classification.rangeLabel}",
+                                color = TextMuted.copy(alpha = 0.8f),
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                         Spacer(modifier = Modifier.height(2.dp))
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
@@ -299,7 +312,7 @@ private fun MiniGlassTile(
             .clip(RoundedCornerShape(12.dp))
             .background(Color(0x1AFFFFFF))
             .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(12.dp))
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(horizontal = 6.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -307,7 +320,9 @@ private fun MiniGlassTile(
                 text = title,
                 color = TextMuted,
                 fontSize = 10.sp,
-                maxLines = 1
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
@@ -315,7 +330,9 @@ private fun MiniGlassTile(
                 color = TextPrimary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 1
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

@@ -84,10 +84,10 @@ class BiometricAgeEstimator {
 
         // 5. Lower-Face Maturity & Facial Hair Detection (Beards, Mustaches & Chin Contrast)
         // Biological Fact: Prepubescent children (< 14) never have dark beard stubble or mustaches.
-        val chinZoneY = (fh * 0.68f).toInt().coerceAtMost(fh - 10)
-        val chinZoneH = (fh * 0.26f).toInt().coerceAtLeast(3)
-        val chinZoneX = (fw * 0.25f).toInt()
-        val chinZoneW = (fw * 0.50f).toInt().coerceAtLeast(3)
+        val chinZoneY = (fh * 0.62f).toInt().coerceAtMost(fh - 6)
+        val chinZoneH = (fh * 0.35f).toInt().coerceAtLeast(3)
+        val chinZoneX = (fw * 0.20f).toInt()
+        val chinZoneW = (fw * 0.60f).toInt().coerceAtLeast(3)
 
         var foreheadLumSum = 0f
         var foreheadPixels = 0
@@ -115,13 +115,13 @@ class BiometricAgeEstimator {
         )
         val chinRoughness = (chinEnergy / 28.0f).coerceIn(0.02f, 0.95f)
 
-        val hasFacialHair = (beardRatio < 0.82f && chinRoughness > 0.16f) || (beardRatio < 0.70f)
+        val hasFacialHair = (beardRatio < 0.86f && chinRoughness > 0.12f) || (beardRatio < 0.76f) || (chinRoughness > 0.30f)
 
         // 6. Biological Consistency Check:
         // Forehead fringes (kahkül) can create artificial high-frequency edges on infants/children.
-        // Only clamp when craniofacial eye ratio indicates true infant/baby (< 0.33f) and no facial hair exists.
-        val wrinkleScore = if (eyeHeightRatio < 0.33f && periorbitalScore < 0.20f && !hasFacialHair) {
-            rawWrinkleScore.coerceAtMost(0.18f)
+        // Only clamp when craniofacial eye ratio indicates true infant/baby (< 0.30f) and no facial hair exists.
+        val wrinkleScore = if (eyeHeightRatio < 0.30f && periorbitalScore < 0.16f && !hasFacialHair) {
+            rawWrinkleScore.coerceAtMost(0.16f)
         } else {
             rawWrinkleScore
         }
@@ -162,36 +162,27 @@ class BiometricAgeEstimator {
         val effectiveAge = if (onnxResult != null) {
             val (rawGender, rawAge) = onnxResult
             when {
-                // Prepubescent Infant / Baby (1 - 3 years old)
-                // Infant craniofacial anatomy: low eye-line ratio (< 0.33f), high forehead, unwrinkled skin, no facial hair.
-                eyeHeightRatio < 0.33f && wrinkleScore < 0.20f && periorbitalScore < 0.20f && !hasFacialHair -> {
-                    val babyRatioFactor = if (eyeHeightRatio < 0.31f) 0.6f else 1.0f
-                    (1.0f + (wrinkleScore / 0.20f) * 2.0f * babyRatioFactor).coerceIn(1.0f, 3.0f)
-                }
-                // Child (4 - 12 years old)
-                eyeHeightRatio < 0.36f && wrinkleScore < 0.22f && periorbitalScore < 0.22f && !hasFacialHair && rawAge < 35.0f -> {
-                    val childRatioFactor = if (eyeHeightRatio < 0.34f) 0.85f else 1.0f
-                    (4.0f + ((wrinkleScore - 0.08f).coerceAtLeast(0f) / 0.14f) * 7.0f) * childRatioFactor
-                }
-                // Adult male with facial hair (beard/mustache): Guaranteed adult (>= 25 yo)
+                // Adult with facial hair (beard/mustache): Guaranteed adult (>= 22 yo)
                 hasFacialHair -> {
-                    when {
-                        rawAge >= 70.0f -> rawAge.coerceIn(68f, 100f)
-                        rawAge >= 52.0f -> (52.0f + (rawAge - 52.0f) * 0.85f).coerceIn(50f, 68f)
-                        rawAge >= 25.0f -> rawAge
-                        else -> 26.0f + (rawAge - 15.0f).coerceAtLeast(0f) * 0.5f
-                    }.coerceIn(25f, 85f)
+                    if (rawAge < 20.0f) 26.0f else rawAge.coerceIn(20.0f, 95.0f)
                 }
-                // Senior (68 - 100 years old)
-                rawAge >= 68.0f -> rawAge.coerceIn(68f, 100f)
-                // Mature Adult (52 - 67 years old)
-                rawAge >= 52.0f -> (52.0f + (rawAge - 52.0f) * 0.85f).coerceIn(50f, 67f)
-                // Adult (33 - 51 years old)
-                rawAge >= 33.0f -> rawAge.coerceIn(33f, 51f)
-                // Young Adult (18 - 32 years old)
-                rawAge >= 18.0f -> rawAge.coerceIn(18f, 32f)
+                // Biological Invariance: If periorbital is smooth (no crow's feet) and no facial hair exists,
+                // the subject CANNOT be an older adult or senior, regardless of unaligned ONNX logit drift!
+                periorbitalScore < 0.16f && !hasFacialHair && rawAge >= 35.0f -> {
+                    when {
+                        wrinkleScore < 0.14f -> 2.0f + (wrinkleScore / 0.14f) * 2.0f // 2 - 4 (Toddler)
+                        wrinkleScore < 0.22f -> 5.0f + ((wrinkleScore - 0.14f) / 0.08f) * 5.0f // 5 - 10 (Child)
+                        else -> 11.0f + ((wrinkleScore - 0.22f).coerceAtLeast(0f) / 0.08f) * 5.0f // 11 - 16 (Teen)
+                    }
+                }
+                // Prepubescent Infant / Baby (1 - 3 years old)
+                rawAge < 4.0f -> rawAge.coerceIn(1.0f, 3.5f)
+                // Child (4 - 12 years old)
+                rawAge < 13.0f -> rawAge.coerceIn(4.0f, 12.0f)
                 // Teenager (13 - 17 years old)
-                else -> rawAge.coerceIn(13f, 17f)
+                rawAge < 18.0f -> rawAge.coerceIn(13.0f, 17.5f)
+                // Direct neural network prediction
+                else -> rawAge.coerceIn(1.0f, 95.0f)
             }
         } else {
             // Heuristic multi-zone biological regression fallback
@@ -205,23 +196,21 @@ class BiometricAgeEstimator {
                         else -> 63.0f + ((wrinkleScore - 0.75f) / 0.25f) * 20.0f // 63 - 83
                     }
                 }
-                // Infant / Toddler (1 - 3 years old): unwrinkled, ultra-smooth baby skin and low eye-line ratio
-                !hasFacialHair && (eyeHeightRatio < 0.33f && wrinkleScore < 0.20f && periorbitalScore < 0.20f) -> {
-                    val babyRatioFactor = if (eyeHeightRatio < 0.31f) 0.6f else 1.0f
-                    (1.0f + (wrinkleScore / 0.20f) * 2.0f * babyRatioFactor).coerceIn(1.0f, 3.0f)
+                // Infant / Toddler (1 - 3 years old): unwrinkled, ultra-smooth baby skin
+                !hasFacialHair && periorbitalScore < 0.14f && wrinkleScore < 0.15f -> {
+                    (1.0f + (wrinkleScore / 0.15f) * 2.5f).coerceIn(1.0f, 3.5f)
                 }
-                // Child (4 - 12 years old): smooth youthful skin, low craniofacial ratio, no facial hair
-                !hasFacialHair && eyeHeightRatio < 0.36f && wrinkleScore < 0.22f && periorbitalScore < 0.22f -> {
-                    val childRatioFactor = if (eyeHeightRatio < 0.34f) 0.85f else 1.0f
-                    (5.0f + ((wrinkleScore - 0.08f).coerceAtLeast(0f) / 0.14f) * 6.0f) * childRatioFactor
+                // Child (4 - 12 years old): smooth youthful skin, low crow's feet, no facial hair
+                !hasFacialHair && periorbitalScore < 0.16f && wrinkleScore < 0.24f -> {
+                    (5.0f + ((wrinkleScore - 0.12f).coerceAtLeast(0f) / 0.12f) * 6.0f).coerceIn(4.0f, 11.0f)
                 }
                 // Teenager (13 - 17 years old): transitional minor
-                !hasFacialHair && eyeHeightRatio < 0.38f && wrinkleScore < 0.25f && periorbitalScore < 0.25f -> {
-                    13.0f + ((wrinkleScore - 0.18f).coerceAtLeast(0f) / 0.07f) * 4.0f
+                !hasFacialHair && periorbitalScore < 0.18f && wrinkleScore < 0.27f -> {
+                    (12.0f + ((wrinkleScore - 0.20f).coerceAtLeast(0f) / 0.07f) * 5.0f).coerceIn(12.0f, 17.0f)
                 }
                 // Young Adult (18 - 29 years old): mature eye ratio, minimal resting wrinkles
                 wrinkleScore < 0.38f -> {
-                    18.0f + ((wrinkleScore - 0.15f).coerceAtLeast(0f) / 0.23f) * 11.0f + (skinTextureRoughness * 2.0f)
+                    20.0f + ((wrinkleScore - 0.15f).coerceAtLeast(0f) / 0.23f) * 10.0f
                 }
                 // Adult (30 - 45 years old): early expression and periorbital lines
                 wrinkleScore < 0.58f -> {
@@ -229,11 +218,11 @@ class BiometricAgeEstimator {
                 }
                 // Mature (46 - 62 years old): noticeable forehead lines and dermal maturation
                 wrinkleScore < 0.78f -> {
-                    46.0f + ((wrinkleScore - 0.58f) / 0.20f) * 14.0f + (skinTextureRoughness * 4.0f)
+                    46.0f + ((wrinkleScore - 0.58f) / 0.20f) * 14.0f
                 }
-                // Senior (63 - 88 years old): prominent deep facial furrows, crow's feet and dermal roughness
+                // Senior (63 - 88 years old): prominent deep facial furrows, crow's feet
                 else -> {
-                    63.0f + ((wrinkleScore - 0.78f) / 0.22f) * 18.0f + (periorbitalScore * 5.0f) + (skinTextureRoughness * 5.0f)
+                    63.0f + ((wrinkleScore - 0.78f) / 0.22f) * 18.0f + (periorbitalScore * 5.0f)
                 }
             }
         }
@@ -270,7 +259,7 @@ class BiometricAgeEstimator {
         val fh = faceBox.normalizedHeight * fullBuffer.height
         val cx = (faceBox.normalizedX + faceBox.normalizedWidth / 2f) * fullBuffer.width
         val cy = (faceBox.normalizedY + faceBox.normalizedHeight / 2f) * fullBuffer.height
-        val side = maxOf(fw, fh) * 1.5f
+        val side = maxOf(fw, fh) * 1.25f
         val startX = cx - side / 2f
         val startY = cy - side / 2f
 
@@ -283,9 +272,10 @@ class BiometricAgeEstimator {
                 val sx = (startX + (tx.toFloat() / 96f) * side).toInt()
                 val idx = ty * 96 + tx
                 if (sx in 0 until fullBuffer.width && sy in 0 until fullBuffer.height) {
-                    floats[idx] = fullBuffer.red(sx, sy).toFloat()
+                    // InsightFace models expect BGR planar format
+                    floats[idx] = fullBuffer.blue(sx, sy).toFloat()
                     floats[planeSize + idx] = fullBuffer.green(sx, sy).toFloat()
-                    floats[2 * planeSize + idx] = fullBuffer.blue(sx, sy).toFloat()
+                    floats[2 * planeSize + idx] = fullBuffer.red(sx, sy).toFloat()
                 } else {
                     floats[idx] = 0f
                     floats[planeSize + idx] = 0f

@@ -272,4 +272,28 @@ class AgeTraceCleanArchitectureTest {
             assertEquals(null, res)
         }
     }
+
+    @Test
+    fun testUniversalBlurAndIndividualOverride() {
+        val portrait = SampleFaceFactory.generatePortrait(28)
+        val faceBox1 = BoundingBox(0.1f, 0.2f, 0.3f, 0.4f)
+        val faceBox2 = BoundingBox(0.6f, 0.2f, 0.3f, 0.4f)
+
+        // 1. Universal blur: all faces blurred
+        val allBlurredBuffer = portrait.withBlurredFaces(listOf(faceBox1, faceBox2))
+        assertNotNull(allBlurredBuffer)
+        assertTrue(!portrait.pixels.contentEquals(allBlurredBuffer.pixels), "Pixels must change when blurred")
+
+        // 2. Individual face override: only face2 blurred (face1 unblurred)
+        val singleFaceBlurred = portrait.withBlurredFaces(listOf(faceBox2))
+        assertNotNull(singleFaceBlurred)
+
+        // Face1 center area in singleFaceBlurred should match original portrait
+        val face1CenterIdx = ((faceBox1.centerY * portrait.height).toInt() * portrait.width) + (faceBox1.centerX * portrait.width).toInt()
+        assertEquals(portrait.pixels[face1CenterIdx], singleFaceBlurred.pixels[face1CenterIdx], "Unblurred face1 must retain original pixels")
+
+        // Face2 center area in singleFaceBlurred should be blurred (different from original)
+        val face2CenterIdx = ((faceBox2.centerY * portrait.height).toInt() * portrait.width) + (faceBox2.centerX * portrait.width).toInt()
+        assertTrue(portrait.pixels[face2CenterIdx] != singleFaceBlurred.pixels[face2CenterIdx], "Blurred face2 must have blurred pixels")
+    }
 }

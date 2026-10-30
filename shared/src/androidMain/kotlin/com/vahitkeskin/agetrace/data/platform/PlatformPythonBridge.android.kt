@@ -10,7 +10,7 @@ import java.net.URI
 
 actual object PlatformPythonBridge {
 
-    actual fun isPythonSupported(): Boolean = true
+    actual fun isPythonSupported(): Boolean = false
 
     actual suspend fun analyzeWithPython(imageBytes: ByteArray): String? = withContext(Dispatchers.IO) {
         val optimizedBytes = prepareOptimizedBytes(imageBytes)

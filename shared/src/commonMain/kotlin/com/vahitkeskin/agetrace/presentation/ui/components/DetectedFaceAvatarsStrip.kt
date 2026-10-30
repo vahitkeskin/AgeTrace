@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vahitkeskin.agetrace.data.platform.PlatformImageBridge
@@ -60,7 +61,9 @@ fun DetectedFaceAvatarsStrip(
     faces: List<DetectedFace>,
     pixelBuffer: PixelBuffer?,
     selectedFace: DetectedFace?,
-    onFaceClick: (DetectedFace) -> Unit
+    blurredFaceIds: Set<String> = emptySet(),
+    onFaceClick: (DetectedFace) -> Unit,
+    onToggleFaceBlur: (String) -> Unit = {}
 ) {
     if (faces.isEmpty() || pixelBuffer == null) return
 
@@ -155,7 +158,7 @@ fun DetectedFaceAvatarsStrip(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .width(116.dp)
+                            .width(122.dp)
                             .clip(RoundedCornerShape(16.dp))
                             .background(
                                 brush = if (isSelected) {
@@ -209,6 +212,24 @@ fun DetectedFaceAvatarsStrip(
                                     fontSize = 24.sp
                                 )
                             }
+
+                            val isBlurred = blurredFaceIds.contains(face.id)
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(3.dp)
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isBlurred) Color(0xD90F172A) else Color(0x99000000))
+                                    .border(1.dp, if (isBlurred) AccentBlue else Color(0x40FFFFFF), CircleShape)
+                                    .clickable { onToggleFaceBlur(face.id) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (isBlurred) "🛡️" else "👁️",
+                                    fontSize = 10.sp
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(7.dp))
@@ -231,7 +252,9 @@ fun DetectedFaceAvatarsStrip(
                                 color = TextPrimary,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                maxLines = 1
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -253,7 +276,37 @@ fun DetectedFaceAvatarsStrip(
                                 text = if (face.classification.isAdult) "Yetişkin" else "Reşit Değil",
                                 color = themeColor,
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        val isBlurred = blurredFaceIds.contains(face.id)
+                        // Per-Face Blur Toggle Chip
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(if (isBlurred) Color(0x3338BDF8) else Color(0x1AFFFFFF))
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isBlurred) AccentBlue.copy(alpha = 0.7f) else Color(0x22FFFFFF),
+                                    shape = RoundedCornerShape(999.dp)
+                                )
+                                .clickable { onToggleFaceBlur(face.id) }
+                                .padding(horizontal = 7.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = if (isBlurred) "🛡️ Bulanık" else "👁️ Net",
+                                color = if (isBlurred) AccentBlue else TextSecondary,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

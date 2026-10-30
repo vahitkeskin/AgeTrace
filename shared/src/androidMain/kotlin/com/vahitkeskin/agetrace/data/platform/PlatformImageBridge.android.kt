@@ -101,4 +101,65 @@ actual object PlatformImageBridge {
             null
         }
     }
+
+    actual fun saveImageToGallery(pixelBuffer: PixelBuffer, format: String): String? {
+        return try {
+            val bitmap = Bitmap.createBitmap(
+                pixelBuffer.pixels,
+                pixelBuffer.width,
+                pixelBuffer.height,
+                Bitmap.Config.ARGB_8888
+            )
+            val isPng = format.equals("PNG", ignoreCase = true)
+            val compressFormat = if (isPng) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
+            val quality = if (isPng) 100 else 95
+            val extension = if (isPng) "png" else "jpg"
+            val mimeType = if (isPng) "image/png" else "image/jpeg"
+            val filename = "AgeTrace_${System.currentTimeMillis()}.$extension"
+
+            val context = AppContextHolder.context
+            if (context != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val contentValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/AgeTrace")
+                    put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+                val resolver = context.contentResolver
+                val uri = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { stream ->
+                        bitmap.compress(compressFormat, quality, stream)
+                    }
+                    contentValues.clear()
+                    contentValues.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(uri, contentValues, null, null)
+                    bitmap.recycle()
+                    return filename
+                }
+            } else {
+                val picturesDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES)
+                val targetDir = java.io.File(picturesDir, "AgeTrace").apply { mkdirs() }
+                val targetFile = java.io.File(targetDir, filename)
+                java.io.FileOutputStream(targetFile).use { stream ->
+                    bitmap.compress(compressFormat, quality, stream)
+                }
+                if (context != null) {
+                    android.media.MediaScannerConnection.scanFile(
+                        context,
+                        arrayOf(targetFile.absolutePath),
+                        arrayOf(mimeType),
+                        null
+                    )
+                }
+                bitmap.recycle()
+                return targetFile.name
+            }
+            bitmap.recycle()
+            null
+        } catch (t: Throwable) {
+            t.printStackTrace()
+            null
+        }
+    }
 }

@@ -128,4 +128,25 @@ actual object PlatformImageBridge {
             null
         }
     }
+
+    actual fun saveImageToGallery(pixelBuffer: PixelBuffer, format: String): String? {
+        return try {
+            val isPng = format.equals("PNG", ignoreCase = true)
+            val extension = if (isPng) "png" else "jpg"
+            val formatName = if (isPng) "png" else "jpg"
+            val filename = "AgeTrace_${System.currentTimeMillis()}.$extension"
+
+            val userHome = System.getProperty("user.home") ?: "."
+            val picturesDir = File(userHome, "Pictures/AgeTrace").apply { mkdirs() }
+            val targetFile = File(picturesDir, filename)
+
+            val bi = BufferedImage(pixelBuffer.width, pixelBuffer.height, BufferedImage.TYPE_INT_ARGB)
+            bi.setRGB(0, 0, pixelBuffer.width, pixelBuffer.height, pixelBuffer.pixels, 0, pixelBuffer.width)
+            ImageIO.write(bi, formatName, targetFile)
+            targetFile.absolutePath
+        } catch (t: Throwable) {
+            t.printStackTrace()
+            null
+        }
+    }
 }

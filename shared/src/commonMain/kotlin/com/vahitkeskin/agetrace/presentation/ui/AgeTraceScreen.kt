@@ -5,6 +5,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,6 +57,7 @@ import com.vahitkeskin.agetrace.presentation.theme.AmbientGlassBackdrop
 import com.vahitkeskin.agetrace.presentation.theme.BackgroundDark
 import com.vahitkeskin.agetrace.presentation.theme.GlassBorder
 import com.vahitkeskin.agetrace.presentation.theme.GlassSpecularBorderBrush
+import com.vahitkeskin.agetrace.presentation.theme.GlassSpecularBorderBrushSelected
 import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicCard
 import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicIconButton
 import com.vahitkeskin.agetrace.presentation.theme.GlassmorphicPill
@@ -102,6 +105,15 @@ fun AgeTraceScreen(
         }
     }
 
+    var toastMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(toastMessage) {
+        if (toastMessage != null) {
+            kotlinx.coroutines.delay(2500)
+            toastMessage = null
+        }
+    }
+
     // Multiplatform Native Gallery Launcher (Android PhotoPicker, iOS Photos, Desktop FileDialog)
     val galleryLauncher = rememberGalleryPickerLauncher { name, bytes ->
         viewModel.handleIntent(AgeTraceContract.Intent.OnFileUploaded(name, bytes))
@@ -122,7 +134,7 @@ fun AgeTraceScreen(
                     cameraLauncher()
                 }
                 is AgeTraceContract.Effect.Notify -> {
-                    // Feedback notification
+                    toastMessage = effect.message
                 }
             }
         }
@@ -179,11 +191,12 @@ fun AgeTraceScreen(
                                 state = state,
                                 onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
                                 onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
-                                onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) },
+                                onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAllBlur) },
                                 onToggleAgeBalloonClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAgeBalloon) },
                                 onPickFileClick = { galleryLauncher() },
                                 onCameraClick = { cameraLauncher() },
-                                onImageClick = { isFullscreenOpen = true }
+                                onImageClick = { isFullscreenOpen = true },
+                                onExportClick = { format -> viewModel.handleIntent(AgeTraceContract.Intent.ExportCurrentImage(format)) }
                             )
 
                             if (state.detectedFaces.isNotEmpty()) {
@@ -192,7 +205,9 @@ fun AgeTraceScreen(
                                     faces = state.detectedFaces,
                                     pixelBuffer = state.pixelBuffer,
                                     selectedFace = state.selectedFace,
-                                    onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) }
+                                    blurredFaceIds = state.blurredFaceIds,
+                                    onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
+                                    onToggleFaceBlur = { faceId -> viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(faceId)) }
                                 )
                             }
 
@@ -233,11 +248,12 @@ fun AgeTraceScreen(
                             state = state,
                             onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
                             onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
-                            onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleMinorBlur) },
+                            onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAllBlur) },
                             onToggleAgeBalloonClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAgeBalloon) },
                             onPickFileClick = { galleryLauncher() },
                             onCameraClick = { cameraLauncher() },
-                            onImageClick = { isFullscreenOpen = true }
+                            onImageClick = { isFullscreenOpen = true },
+                            onExportClick = { format -> viewModel.handleIntent(AgeTraceContract.Intent.ExportCurrentImage(format)) }
                         )
 
                         if (state.detectedFaces.isNotEmpty()) {
@@ -246,7 +262,9 @@ fun AgeTraceScreen(
                                 faces = state.detectedFaces,
                                 pixelBuffer = state.pixelBuffer,
                                 selectedFace = state.selectedFace,
-                                onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) }
+                                blurredFaceIds = state.blurredFaceIds,
+                                onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
+                                onToggleFaceBlur = { faceId -> viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(faceId)) }
                             )
                         }
 
@@ -284,6 +302,32 @@ fun AgeTraceScreen(
                 onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
                 onDismiss = { isFullscreenOpen = false }
             )
+        }
+
+        // 4. Floating Feedback Toast Pill
+        AnimatedVisibility(
+            visible = toastMessage != null,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { -it }),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color(0xF00F172A))
+                    .border(1.dp, GlassSpecularBorderBrushSelected, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 18.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = toastMessage ?: "",
+                    color = Color.White,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
@@ -452,7 +496,8 @@ private fun MainViewport(
     onToggleAgeBalloonClick: () -> Unit,
     onPickFileClick: () -> Unit,
     onCameraClick: () -> Unit,
-    onImageClick: () -> Unit
+    onImageClick: () -> Unit,
+    onExportClick: (AgeTraceContract.ExportFormat) -> Unit
 ) {
     GlassmorphicCard(
         modifier = modifier,
@@ -499,151 +544,228 @@ private fun MainViewport(
                     FacebookShimmerViewportOverlay()
                 }
 
-                // Sleek Floating Controls (Top-Right): Reşit Değil Blur Switch + Yaş Balonu Switch + Rotate Button
+                // Sleek Floating Control Header across top of viewport
                 Row(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(12.dp),
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                        .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    val minorThumbOffset by animateDpAsState(
-                        targetValue = if (state.isMinorBlurEnabled) 15.dp else 2.dp,
-                        label = "minor_blur_switch"
-                    )
-
-                    val ageBalloonThumbOffset by animateDpAsState(
-                        targetValue = if (state.isAgeBalloonVisible) 15.dp else 2.dp,
-                        label = "age_balloon_switch"
-                    )
-
-                    // 1. Glassmorphic Switch Button for Minor Face Blur
+                    // Left Action Group: Rotate + Fullscreen Zoom
                     Row(
-                        modifier = Modifier
-                            .height(34.dp)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(
-                                brush = if (state.isMinorBlurEnabled) {
-                                    Brush.verticalGradient(
-                                        listOf(MinorColorBg, Color(0xB3064E3B))
-                                    )
-                                } else {
-                                    Brush.verticalGradient(
-                                        listOf(Color(0xD90F172A), Color(0xB30F172A))
-                                    )
-                                }
-                            )
-                            .border(
-                                width = 1.dp,
-                                brush = if (state.isMinorBlurEnabled) {
-                                    Brush.verticalGradient(
-                                        listOf(MinorColor.copy(alpha = 0.8f), MinorColor.copy(alpha = 0.3f))
-                                    )
-                                } else {
-                                    GlassSpecularBorderBrush
-                                },
-                                shape = RoundedCornerShape(999.dp)
-                            )
-                            .clickable { onToggleBlurClick() }
-                            .padding(horizontal = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = if (state.isMinorBlurEnabled) "🛡️ Reşit Değil" else "👁️ Reşit Değil",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (state.isMinorBlurEnabled) MinorColor else TextSecondary
+                        // Frosted Glass Rotate Button
+                        GlassmorphicIconButton(
+                            icon = "🔄",
+                            onClick = onRotateClick,
+                            size = 32.dp
                         )
 
-                        // Smooth Capsule Switch Track & Moving Thumb
-                        Box(
-                            modifier = Modifier
-                                .width(30.dp)
-                                .height(16.dp)
-                                .clip(CircleShape)
-                                .background(if (state.isMinorBlurEnabled) MinorColor else Color(0xFF334155))
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .padding(start = minorThumbOffset, top = 2.dp)
-                                    .size(12.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White)
-                            )
-                        }
+                        // Frosted Glass Fullscreen Zoom Button
+                        GlassmorphicIconButton(
+                            icon = "⛶",
+                            onClick = onImageClick,
+                            size = 32.dp
+                        )
                     }
 
-                    // 2. Glassmorphic Switch Button for Age Balloon & Face Frame Visibility
+                    // Right Toggle Group: Minor Blur + Age Balloon
                     Row(
-                        modifier = Modifier
-                            .height(34.dp)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(
-                                brush = if (state.isAgeBalloonVisible) {
-                                    Brush.verticalGradient(
-                                        listOf(Color(0xD90369A1), Color(0xB30284C7))
-                                    )
-                                } else {
-                                    Brush.verticalGradient(
-                                        listOf(Color(0xD90F172A), Color(0xB30F172A))
-                                    )
-                                }
-                            )
-                            .border(
-                                width = 1.dp,
-                                brush = if (state.isAgeBalloonVisible) {
-                                    Brush.verticalGradient(
-                                        listOf(Color(0xFF38BDF8).copy(alpha = 0.8f), Color(0xFF38BDF8).copy(alpha = 0.3f))
-                                    )
-                                } else {
-                                    GlassSpecularBorderBrush
-                                },
-                                shape = RoundedCornerShape(999.dp)
-                            )
-                            .clickable { onToggleAgeBalloonClick() }
-                            .padding(horizontal = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = "🎈 Yaş & Çerçeve",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (state.isAgeBalloonVisible) Color(0xFF38BDF8) else TextSecondary
+                        val isBlurActive = state.isBlurAllEnabled || state.isMinorBlurEnabled
+                        val blurThumbOffset by animateDpAsState(
+                            targetValue = if (isBlurActive) 13.dp else 2.dp,
+                            label = "blur_switch"
                         )
 
-                        // Smooth Capsule Switch Track & Moving Thumb
-                        Box(
+                        val ageBalloonThumbOffset by animateDpAsState(
+                            targetValue = if (state.isAgeBalloonVisible) 13.dp else 2.dp,
+                            label = "age_balloon_switch"
+                        )
+
+                        // 1. Glassmorphic Switch Button for Universal Face Blur
+                        Row(
                             modifier = Modifier
-                                .width(30.dp)
-                                .height(16.dp)
-                                .clip(CircleShape)
-                                .background(if (state.isAgeBalloonVisible) Color(0xFF38BDF8) else Color(0xFF334155))
+                                .height(32.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(
+                                    brush = if (isBlurActive) {
+                                        Brush.verticalGradient(
+                                            listOf(MinorColorBg, Color(0xB3064E3B))
+                                        )
+                                    } else {
+                                        Brush.verticalGradient(
+                                            listOf(Color(0xD90F172A), Color(0xB30F172A))
+                                        )
+                                    }
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    brush = if (isBlurActive) {
+                                        Brush.verticalGradient(
+                                            listOf(MinorColor.copy(alpha = 0.8f), MinorColor.copy(alpha = 0.3f))
+                                        )
+                                    } else {
+                                        GlassSpecularBorderBrush
+                                    },
+                                    shape = RoundedCornerShape(999.dp)
+                                )
+                                .clickable { onToggleBlurClick() }
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+                            Text(
+                                text = if (isBlurActive) "🛡️ Bulanık" else "👁️ Net",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isBlurActive) MinorColor else TextSecondary,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+
+                            // Smooth Capsule Switch Track & Moving Thumb
                             Box(
                                 modifier = Modifier
-                                    .padding(start = ageBalloonThumbOffset, top = 2.dp)
-                                    .size(12.dp)
+                                    .width(26.dp)
+                                    .height(15.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White)
+                                    .background(if (isBlurActive) MinorColor else Color(0xFF334155))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(start = blurThumbOffset, top = 2.dp)
+                                        .size(11.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White)
+                                )
+                            }
+                        }
+
+                        // 2. Glassmorphic Switch Button for Age Balloon & Face Frame Visibility
+                        Row(
+                            modifier = Modifier
+                                .height(32.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(
+                                    brush = if (state.isAgeBalloonVisible) {
+                                        Brush.verticalGradient(
+                                            listOf(Color(0xD90369A1), Color(0xB30284C7))
+                                        )
+                                    } else {
+                                        Brush.verticalGradient(
+                                            listOf(Color(0xD90F172A), Color(0xB30F172A))
+                                        )
+                                    }
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    brush = if (state.isAgeBalloonVisible) {
+                                        Brush.verticalGradient(
+                                            listOf(Color(0xFF38BDF8).copy(alpha = 0.8f), Color(0xFF38BDF8).copy(alpha = 0.3f))
+                                        )
+                                    } else {
+                                        GlassSpecularBorderBrush
+                                    },
+                                    shape = RoundedCornerShape(999.dp)
+                                )
+                                .clickable { onToggleAgeBalloonClick() }
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "🎈 Yaş",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (state.isAgeBalloonVisible) Color(0xFF38BDF8) else TextSecondary,
+                                maxLines = 1,
+                                softWrap = false
                             )
+
+                            // Smooth Capsule Switch Track & Moving Thumb
+                            Box(
+                                modifier = Modifier
+                                    .width(26.dp)
+                                    .height(15.dp)
+                                    .clip(CircleShape)
+                                    .background(if (state.isAgeBalloonVisible) Color(0xFF38BDF8) else Color(0xFF334155))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(start = ageBalloonThumbOffset, top = 2.dp)
+                                        .size(11.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White)
+                                )
+                            }
                         }
                     }
+                }
 
-                    // Frosted Glass Rotate Button
-                    GlassmorphicIconButton(
-                        icon = "🔄",
-                        onClick = onRotateClick,
-                        size = 34.dp
-                    )
+                // Sleek Floating Export Buttons at bottom-end of viewport
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Frosted Glass JPEG Download Button
+                    Row(
+                        modifier = Modifier
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    listOf(Color(0xD90F172A), Color(0xB30F172A))
+                                )
+                            )
+                            .border(1.dp, GlassSpecularBorderBrush, RoundedCornerShape(999.dp))
+                            .clickable { onExportClick(AgeTraceContract.ExportFormat.JPEG) }
+                            .padding(horizontal = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "⬇️", fontSize = 10.sp)
+                        Text(
+                            text = "JPG",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
 
-                    // Frosted Glass Fullscreen Zoom Button
-                    GlassmorphicIconButton(
-                        icon = "⛶",
-                        onClick = onImageClick,
-                        size = 34.dp
-                    )
+                    // Frosted Glass PNG Download Button
+                    Row(
+                        modifier = Modifier
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    listOf(Color(0xD90F172A), Color(0xB30F172A))
+                                )
+                            )
+                            .border(1.dp, GlassSpecularBorderBrush, RoundedCornerShape(999.dp))
+                            .clickable { onExportClick(AgeTraceContract.ExportFormat.PNG) }
+                            .padding(horizontal = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "⬇️", fontSize = 10.sp)
+                        Text(
+                            text = "PNG",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentBlue
+                        )
+                    }
                 }
             }
         } else if (state.isAnalyzing) {
