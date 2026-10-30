@@ -11,6 +11,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,18 +38,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vahitkeskin.agetrace.domain.model.CustomBlurRegion
 import com.vahitkeskin.agetrace.domain.model.DetectionMode
@@ -561,7 +568,12 @@ private fun MainViewport(
                 pageCount = { pages.size }
             )
 
+            var zoomScale by remember { mutableFloatStateOf(1f) }
+            var panOffset by remember { mutableStateOf(Offset.Zero) }
+
             LaunchedEffect(pagerState.currentPage) {
+                zoomScale = 1f
+                panOffset = Offset.Zero
                 if (pagerState.currentPage != state.activePageIndex) {
                     onPageChange(pagerState.currentPage)
                 }
@@ -569,6 +581,8 @@ private fun MainViewport(
 
             LaunchedEffect(state.activePageIndex) {
                 if (state.activePageIndex in 0 until pages.size && pagerState.currentPage != state.activePageIndex) {
+                    zoomScale = 1f
+                    panOffset = Offset.Zero
                     pagerState.animateScrollToPage(state.activePageIndex)
                 }
             }
@@ -578,54 +592,106 @@ private fun MainViewport(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(20.dp))
             ) {
-                // HorizontalPager for smooth left/right swiping between uploaded images
+                // HorizontalPager for smooth left/right swiping between uploaded images (paging locked when zoomed in)
                 HorizontalPager(
                     state = pagerState,
+                    userScrollEnabled = (zoomScale <= 1.05f),
                     modifier = Modifier.fillMaxSize()
                 ) { pageIndex ->
                     val page = pages.getOrNull(pageIndex) ?: return@HorizontalPager
                     val displayBitmap = page.displayBitmap
                     val pixelBuffer = page.pixelBuffer
 
-                    Box(
+                    // Direct two-finger pinch-to-zoom, pan and double-tap zoom inside ViewPager
+                    BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxSize()
-                            .clickable { onImageClick() },
+                            .pointerInput(pageIndex) {
+                                detectTapGestures(
+                                    onDoubleTap = { tapOffset ->
+                                        if (zoomScale > 1.15f) {
+                                            zoomScale = 1f
+                                            panOffset = Offset.Zero
+                                        } else {
+                                            val targetScale = 2.5f
+                                            zoomScale = targetScale
+                                            val center = Offset(size.width / 2f, size.height / 2f)
+                                            val diff = center - tapOffset
+                                            val maxOffsetX = (size.width * (targetScale - 1f)) / 2f
+                                            val maxOffsetY = (size.height * (targetScale - 1f)) / 2f
+                                            panOffset = Offset(
+                                                x = (diff.x * 1.5f).coerceIn(-maxOffsetX, maxOffsetX),
+                                                y = (diff.y * 1.5f).coerceIn(-maxOffsetY, maxOffsetY)
+                                            )
+                                        }
+                                    }
+                                )
+                            }
+                            .pointerInput(pageIndex) {
+                                detectTransformGestures { _, pan, zoom, _ ->
+                                    val newScale = (zoomScale * zoom).coerceIn(1f, 5f)
+                                    zoomScale = newScale
+
+                                    if (newScale > 1.02f) {
+                                        val maxOffsetX = (size.width * (newScale - 1f)) / 2f
+                                        val maxOffsetY = (size.height * (newScale - 1f)) / 2f
+                                        panOffset = Offset(
+                                            x = (panOffset.x + pan.x).coerceIn(-maxOffsetX, maxOffsetX),
+                                            y = (panOffset.y + pan.y).coerceIn(-maxOffsetY, maxOffsetY)
+                                        )
+                                    } else {
+                                        panOffset = Offset.Zero
+                                    }
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
-                        if (displayBitmap != null) {
-                            Image(
-                                bitmap = displayBitmap,
-                                contentDescription = "Page Image",
+                        // Scaled & Panned Content (Image, Face Overlays, Custom Blur Areas)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = zoomScale
+                                    scaleY = zoomScale
+                                    translationX = panOffset.x
+                                    translationY = panOffset.y
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (displayBitmap != null) {
+                                Image(
+                                    bitmap = displayBitmap,
+                                    contentDescription = "Page Image",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+
+                            FaceOverlayCanvas(
                                 modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit
+                                faces = page.detectedFaces,
+                                imageWidth = pixelBuffer.width,
+                                imageHeight = pixelBuffer.height,
+                                selectedFace = page.selectedFace,
+                                onFaceClick = onFaceClick,
+                                isScanning = state.isCameraStreaming || page.isAnalyzing,
+                                isAgeBalloonVisible = state.isAgeBalloonVisible
                             )
-                        }
 
-                        FaceOverlayCanvas(
-                            modifier = Modifier.fillMaxSize(),
-                            faces = page.detectedFaces,
-                            imageWidth = pixelBuffer.width,
-                            imageHeight = pixelBuffer.height,
-                            selectedFace = page.selectedFace,
-                            onFaceClick = onFaceClick,
-                            isScanning = state.isCameraStreaming || page.isAnalyzing,
-                            isAgeBalloonVisible = state.isAgeBalloonVisible
-                        )
+                            CustomBlurOverlay(
+                                modifier = Modifier.fillMaxSize(),
+                                customBlurRegions = page.customBlurRegions,
+                                imageWidth = pixelBuffer.width,
+                                imageHeight = pixelBuffer.height,
+                                isAddingMode = state.isAddingCustomBlur,
+                                onAddRegion = onAddCustomBlur,
+                                onUpdateRegion = onUpdateCustomBlur,
+                                onRemoveRegion = onRemoveCustomBlur
+                            )
 
-                        CustomBlurOverlay(
-                            modifier = Modifier.fillMaxSize(),
-                            customBlurRegions = page.customBlurRegions,
-                            imageWidth = pixelBuffer.width,
-                            imageHeight = pixelBuffer.height,
-                            isAddingMode = state.isAddingCustomBlur,
-                            onAddRegion = onAddCustomBlur,
-                            onUpdateRegion = onUpdateCustomBlur,
-                            onRemoveRegion = onRemoveCustomBlur
-                        )
-
-                        if (page.isAnalyzing) {
-                            FacebookShimmerViewportOverlay()
+                            if (page.isAnalyzing) {
+                                FacebookShimmerViewportOverlay()
+                            }
                         }
                     }
                 }
@@ -883,6 +949,37 @@ private fun MainViewport(
                             color = AccentBlue,
                             fontSize = 10.5.sp,
                             fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                // Floating Zoom Reset Indicator when zoomed in
+                if (zoomScale > 1.05f) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(8.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Color(0xD90F172A))
+                            .border(1.dp, AccentBlue.copy(alpha = 0.8f), RoundedCornerShape(999.dp))
+                            .clickable {
+                                zoomScale = 1f
+                                panOffset = Offset.Zero
+                            }
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "🔍 %${(zoomScale * 100).roundToInt()}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentBlue
+                        )
+                        Text(
+                            text = "• Sıfırla",
+                            fontSize = 10.5.sp,
+                            color = TextPrimary
                         )
                     }
                 }
