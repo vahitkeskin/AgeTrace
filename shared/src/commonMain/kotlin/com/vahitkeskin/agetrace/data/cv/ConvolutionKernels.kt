@@ -33,8 +33,8 @@ object ConvolutionKernels {
         for (y in (startY + 1) until (startY + height - 1)) {
             for (x in (startX + 1) until (startX + width - 1)) {
                 val centerLum = buffer.luminance(x, y)
-                // Filter out non-skin pixels: pitch black background or deep hair (< 55f)
-                if (centerLum > 55f) {
+                // Filter out non-face pure black boundaries (< 12f), keeping dark beard, stubble and skin
+                if (centerLum > 12f) {
                     val top = -1f * buffer.luminance(x - 1, y - 1) - 2f * buffer.luminance(x, y - 1) - 1f * buffer.luminance(x + 1, y - 1)
                     val bottom = 1f * buffer.luminance(x - 1, y + 1) + 2f * buffer.luminance(x, y + 1) + 1f * buffer.luminance(x + 1, y + 1)
                     // Cap to biological wrinkle depth (32f): real human wrinkles never exhibit 200+ step changes
@@ -65,7 +65,7 @@ object ConvolutionKernels {
         for (y in (startY + 1) until (startY + height - 1)) {
             for (x in (startX + 1) until (startX + width - 1)) {
                 val centerLum = buffer.luminance(x, y)
-                if (centerLum > 55f) {
+                if (centerLum > 12f) {
                     // Sobel X
                     val left = -1f * buffer.luminance(x - 1, y - 1) - 2f * buffer.luminance(x - 1, y) - 1f * buffer.luminance(x - 1, y + 1)
                     val right = 1f * buffer.luminance(x + 1, y - 1) + 2f * buffer.luminance(x + 1, y) + 1f * buffer.luminance(x + 1, y + 1)
@@ -103,7 +103,7 @@ object ConvolutionKernels {
         for (y in startY until (startY + height)) {
             for (x in startX until (startX + width)) {
                 val lum = buffer.luminance(x, y)
-                if (lum > 55f) {
+                if (lum > 12f) {
                     sum += lum
                     sumSq += lum * lum
                     count++

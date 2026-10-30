@@ -62,23 +62,28 @@ fun DetectedFaceAvatarsStrip(
     pixelBuffer: PixelBuffer?,
     selectedFace: DetectedFace?,
     blurredFaceIds: Set<String> = emptySet(),
+    isExpanded: Boolean = false,
+    onToggleExpand: () -> Unit = {},
     onFaceClick: (DetectedFace) -> Unit,
     onToggleFaceBlur: (String) -> Unit = {}
 ) {
     if (faces.isEmpty() || pixelBuffer == null) return
 
     GlassmorphicCard(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .clickable { onToggleExpand() },
         cornerRadius = 18.dp,
         borderBrush = GlassSpecularBorderBrush
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Header: Title & Count indicator
+            // Header: Title & Count indicator & Expand/Collapse Toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -103,27 +108,53 @@ fun DetectedFaceAvatarsStrip(
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(Color(0x1AFFFFFF))
-                        .border(1.dp, Color(0x1FFFFFFF), RoundedCornerShape(999.dp))
-                        .padding(horizontal = 9.dp, vertical = 3.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "${faces.size} Kişi",
-                        color = AccentBlue,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Color(0x1AFFFFFF))
+                            .border(1.dp, Color(0x1FFFFFFF), RoundedCornerShape(999.dp))
+                            .padding(horizontal = 9.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "${faces.size} Kişi",
+                            color = AccentBlue,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color(0x14FFFFFF)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isExpanded) "▲" else "▼",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
-            // Horizontal LazyRow of Frosted Face Cards
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(horizontal = 1.dp, vertical = 2.dp)
+            // Collapsible List of Face Cards (Default Closed)
+            androidx.compose.animation.AnimatedVisibility(
+                visible = isExpanded,
+                enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
             ) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(horizontal = 1.dp, vertical = 2.dp)
+                ) {
                 items(faces, key = { it.id }) { face ->
                     val isSelected = (face.id == selectedFace?.id)
                     val themeColor = if (face.classification.isAdult) AdultColor else MinorColor
@@ -314,4 +345,5 @@ fun DetectedFaceAvatarsStrip(
             }
         }
     }
+}
 }

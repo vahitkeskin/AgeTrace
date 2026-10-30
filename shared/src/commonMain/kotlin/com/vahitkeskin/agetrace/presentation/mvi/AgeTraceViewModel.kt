@@ -7,6 +7,7 @@ import com.vahitkeskin.agetrace.data.cv.SampleFaceFactory
 import com.vahitkeskin.agetrace.data.platform.PlatformImageBridge
 import com.vahitkeskin.agetrace.di.ServiceLocator
 import com.vahitkeskin.agetrace.domain.model.AnalysisMetrics
+import com.vahitkeskin.agetrace.domain.model.CustomBlurRegion
 import com.vahitkeskin.agetrace.domain.model.DetectedFace
 import com.vahitkeskin.agetrace.domain.model.DetectionMode
 import com.vahitkeskin.agetrace.domain.model.ImageSource
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 class AgeTraceViewModel(
     private val analyzeImageUseCase: AnalyzeImageUseCase = ServiceLocator.analyzeImageUseCase,
@@ -84,8 +86,34 @@ class AgeTraceViewModel(
 
             is AgeTraceContract.Intent.OnFileUploaded -> {
                 stopCameraStream()
-                val fileSource = ImageSource.LocalFile(intent.name, intent.bytes)
-                processImageSource(fileSource, intent.bytes)
+                processMultipleFiles(listOf(Pair(intent.name, intent.bytes)))
+            }
+
+            is AgeTraceContract.Intent.OnMultipleFilesUploaded -> {
+                stopCameraStream()
+                processMultipleFiles(intent.files)
+            }
+
+            is AgeTraceContract.Intent.SelectActivePage -> {
+                _state.update {
+                    it.copy(
+                        activePageIndex = intent.index.coerceIn(0, (it.pages.size - 1).coerceAtLeast(0))
+                    )
+                }
+            }
+
+            is AgeTraceContract.Intent.RemovePage -> {
+                _state.update { s ->
+                    val updatedPages = s.pages.toMutableList()
+                    if (intent.index in updatedPages.indices) {
+                        updatedPages.removeAt(intent.index)
+                    }
+                    val newIndex = s.activePageIndex.coerceIn(0, (updatedPages.size - 1).coerceAtLeast(0))
+                    s.copy(
+                        pages = updatedPages,
+                        activePageIndex = newIndex
+                    )
+                }
             }
 
             AgeTraceContract.Intent.TriggerFilePicker -> {
@@ -109,7 +137,9 @@ class AgeTraceViewModel(
             }
 
             is AgeTraceContract.Intent.SelectFace -> {
-                _state.update { it.copy(selectedFace = intent.face) }
+                updateCurrentPage { page ->
+                    page.copy(selectedFace = intent.face)
+                }
             }
 
             AgeTraceContract.Intent.RerunAnalysis -> {
@@ -121,21 +151,22 @@ class AgeTraceViewModel(
             }
 
             AgeTraceContract.Intent.RotateCurrentImage -> {
+                val curPage = _state.value.currentPage ?: return
                 viewModelScope.launch {
-                    val currentBuffer = _state.value.pixelBuffer ?: return@launch
                     try {
-                        val rotatedBuffer = currentBuffer.rotate90(clockwise = true)
+                        val rotatedBuffer = curPage.pixelBuffer.rotate90(clockwise = true)
                         val rotatedBitmap = PlatformImageBridge.pixelBufferToImageBitmap(rotatedBuffer)
-                        _state.update {
-                            it.copy(
+
+                        updateCurrentPage { page ->
+                            page.copy(
                                 pixelBuffer = rotatedBuffer,
-                                cleanDisplayBitmap = rotatedBitmap,
-                                blurredDisplayBitmap = null,
+                                cleanBitmap = rotatedBitmap,
                                 activePixelBuffer = rotatedBuffer,
                                 displayBitmap = rotatedBitmap,
                                 isAnalyzing = true
                             )
                         }
+
                         val analysisResult = analyzeImageUseCase(
                             buffer = rotatedBuffer,
                             preferredEngine = _state.value.selectedEngine
@@ -144,20 +175,20 @@ class AgeTraceViewModel(
                         val newBlurredIds = if (_state.value.isBlurAllEnabled) {
                             analysisResult.faces.map { it.id }.toSet()
                         } else {
-                            _state.value.blurredFaceIds.intersect(analysisResult.faces.map { it.id }.toSet())
+                            curPage.blurredFaceIds.intersect(analysisResult.faces.map { it.id }.toSet())
                         }
 
-                        val (activeBuffer, activeBitmap) = renderDisplayBitmap(
+                        val (activeBuffer, activeBitmap) = renderPageDisplay(
                             cleanBuffer = rotatedBuffer,
                             cleanBitmap = rotatedBitmap,
                             faces = analysisResult.faces,
-                            blurredFaceIds = newBlurredIds
+                            blurredFaceIds = newBlurredIds,
+                            customBlurRegions = curPage.customBlurRegions
                         )
 
-                        _state.update {
-                            it.copy(
-                                cleanDisplayBitmap = rotatedBitmap,
-                                blurredDisplayBitmap = activeBitmap,
+                        updateCurrentPage { page ->
+                            page.copy(
+                                cleanBitmap = rotatedBitmap,
                                 activePixelBuffer = activeBuffer,
                                 displayBitmap = activeBitmap,
                                 blurredFaceIds = newBlurredIds,
@@ -168,76 +199,167 @@ class AgeTraceViewModel(
                             )
                         }
                     } catch (t: Throwable) {
-                        _state.update { it.copy(isAnalyzing = false) }
+                        updateCurrentPage { it.copy(isAnalyzing = false) }
                     }
                 }
             }
 
             AgeTraceContract.Intent.ToggleMinorBlur,
             AgeTraceContract.Intent.ToggleAllBlur -> {
-                val currentBuffer = _state.value.pixelBuffer ?: return
-                val cleanBitmap = _state.value.cleanDisplayBitmap ?: return
-                val faces = _state.value.detectedFaces
                 val newEnabled = !_state.value.isBlurAllEnabled
-                val newBlurredIds = if (newEnabled) faces.map { it.id }.toSet() else emptySet()
-
-                val (activeBuffer, activeBitmap) = renderDisplayBitmap(
-                    cleanBuffer = currentBuffer,
-                    cleanBitmap = cleanBitmap,
-                    faces = faces,
-                    blurredFaceIds = newBlurredIds
-                )
-
-                _state.update {
-                    it.copy(
+                _state.update { s ->
+                    val updatedPages = s.pages.map { page ->
+                        val newBlurredIds = if (newEnabled) page.detectedFaces.map { it.id }.toSet() else emptySet()
+                        val (activeBuffer, activeBitmap) = renderPageDisplay(
+                            cleanBuffer = page.pixelBuffer,
+                            cleanBitmap = page.cleanBitmap,
+                            faces = page.detectedFaces,
+                            blurredFaceIds = newBlurredIds,
+                            customBlurRegions = page.customBlurRegions
+                        )
+                        page.copy(
+                            blurredFaceIds = newBlurredIds,
+                            activePixelBuffer = activeBuffer,
+                            displayBitmap = activeBitmap
+                        )
+                    }
+                    s.copy(
                         isBlurAllEnabled = newEnabled,
                         isMinorBlurEnabled = newEnabled,
-                        blurredFaceIds = newBlurredIds,
-                        activePixelBuffer = activeBuffer,
-                        displayBitmap = activeBitmap
+                        pages = updatedPages
                     )
                 }
             }
 
             is AgeTraceContract.Intent.ToggleFaceBlur -> {
-                val currentBuffer = _state.value.pixelBuffer ?: return
-                val cleanBitmap = _state.value.cleanDisplayBitmap ?: return
-                val faces = _state.value.detectedFaces
-                val current = _state.value.blurredFaceIds
+                val curPage = _state.value.currentPage ?: return
+                val current = curPage.blurredFaceIds
                 val newBlurredIds = if (current.contains(intent.faceId)) current - intent.faceId else current + intent.faceId
 
-                val (activeBuffer, activeBitmap) = renderDisplayBitmap(
-                    cleanBuffer = currentBuffer,
-                    cleanBitmap = cleanBitmap,
-                    faces = faces,
-                    blurredFaceIds = newBlurredIds
+                val (activeBuffer, activeBitmap) = renderPageDisplay(
+                    cleanBuffer = curPage.pixelBuffer,
+                    cleanBitmap = curPage.cleanBitmap,
+                    faces = curPage.detectedFaces,
+                    blurredFaceIds = newBlurredIds,
+                    customBlurRegions = curPage.customBlurRegions
                 )
 
-                val allBlurred = faces.isNotEmpty() && newBlurredIds.size == faces.size
+                val selected = curPage.detectedFaces.firstOrNull { it.id == intent.faceId } ?: curPage.selectedFace
 
-                _state.update {
-                    it.copy(
-                        isBlurAllEnabled = allBlurred,
-                        isMinorBlurEnabled = allBlurred,
+                updateCurrentPage { page ->
+                    page.copy(
                         blurredFaceIds = newBlurredIds,
+                        activePixelBuffer = activeBuffer,
+                        displayBitmap = activeBitmap,
+                        selectedFace = selected
+                    )
+                }
+            }
+
+            AgeTraceContract.Intent.ToggleCustomBlurMode -> {
+                _state.update { it.copy(isAddingCustomBlur = !it.isAddingCustomBlur) }
+            }
+
+            is AgeTraceContract.Intent.AddCustomBlurRegion -> {
+                val curPage = _state.value.currentPage ?: return
+                val newRegion = CustomBlurRegion(
+                    id = "custom_${Random.nextLong()}",
+                    normalizedX = (intent.normX - 0.08f).coerceIn(0f, 0.84f),
+                    normalizedY = (intent.normY - 0.08f).coerceIn(0f, 0.84f),
+                    normalizedWidth = 0.16f,
+                    normalizedHeight = 0.16f
+                )
+                val updatedRegions = curPage.customBlurRegions + newRegion
+                val (activeBuffer, activeBitmap) = renderPageDisplay(
+                    cleanBuffer = curPage.pixelBuffer,
+                    cleanBitmap = curPage.cleanBitmap,
+                    faces = curPage.detectedFaces,
+                    blurredFaceIds = curPage.blurredFaceIds,
+                    customBlurRegions = updatedRegions
+                )
+                updateCurrentPage { page ->
+                    page.copy(
+                        customBlurRegions = updatedRegions,
+                        activePixelBuffer = activeBuffer,
+                        displayBitmap = activeBitmap
+                    )
+                }
+                viewModelScope.launch {
+                    _effects.emit(AgeTraceContract.Effect.Notify("Özel bulanıklık alanı eklendi"))
+                }
+            }
+
+            is AgeTraceContract.Intent.UpdateCustomBlurRegion -> {
+                val curPage = _state.value.currentPage ?: return
+                val updatedRegions = curPage.customBlurRegions.map {
+                    if (it.id == intent.region.id) intent.region else it
+                }
+                val (activeBuffer, activeBitmap) = renderPageDisplay(
+                    cleanBuffer = curPage.pixelBuffer,
+                    cleanBitmap = curPage.cleanBitmap,
+                    faces = curPage.detectedFaces,
+                    blurredFaceIds = curPage.blurredFaceIds,
+                    customBlurRegions = updatedRegions
+                )
+                updateCurrentPage { page ->
+                    page.copy(
+                        customBlurRegions = updatedRegions,
                         activePixelBuffer = activeBuffer,
                         displayBitmap = activeBitmap
                     )
                 }
             }
 
+            is AgeTraceContract.Intent.RemoveCustomBlurRegion -> {
+                val curPage = _state.value.currentPage ?: return
+                val updatedRegions = curPage.customBlurRegions.filterNot { it.id == intent.regionId }
+                val (activeBuffer, activeBitmap) = renderPageDisplay(
+                    cleanBuffer = curPage.pixelBuffer,
+                    cleanBitmap = curPage.cleanBitmap,
+                    faces = curPage.detectedFaces,
+                    blurredFaceIds = curPage.blurredFaceIds,
+                    customBlurRegions = updatedRegions
+                )
+                updateCurrentPage { page ->
+                    page.copy(
+                        customBlurRegions = updatedRegions,
+                        activePixelBuffer = activeBuffer,
+                        displayBitmap = activeBitmap
+                    )
+                }
+            }
+
+            AgeTraceContract.Intent.ToggleFaceListExpanded -> {
+                _state.update { it.copy(isFaceListExpanded = !it.isFaceListExpanded) }
+            }
+
             is AgeTraceContract.Intent.ExportCurrentImage -> {
                 viewModelScope.launch {
-                    val bufferToSave = _state.value.activePixelBuffer ?: _state.value.pixelBuffer ?: return@launch
+                    val curPage = _state.value.currentPage ?: return@launch
                     val formatName = if (intent.format == AgeTraceContract.ExportFormat.PNG) "PNG" else "JPEG"
-                    val savedPath = PlatformImageBridge.saveImageToGallery(bufferToSave, formatName)
+                    val savedPath = PlatformImageBridge.saveImageToGallery(curPage.activePixelBuffer, formatName)
                     if (savedPath != null) {
                         _effects.emit(AgeTraceContract.Effect.Notify("Görsel galeriye kaydedildi ($formatName)"))
-                        _state.update {
-                            it.copy(metrics = it.metrics.copy(statusMessage = "Görsel kaydedildi: $savedPath"))
-                        }
                     } else {
                         _effects.emit(AgeTraceContract.Effect.Notify("Görsel kaydedilemedi"))
+                    }
+                }
+            }
+
+            is AgeTraceContract.Intent.ExportAllImages -> {
+                viewModelScope.launch {
+                    val pages = _state.value.pages
+                    if (pages.isEmpty()) return@launch
+                    val formatName = if (intent.format == AgeTraceContract.ExportFormat.PNG) "PNG" else "JPEG"
+                    var count = 0
+                    for (page in pages) {
+                        val path = PlatformImageBridge.saveImageToGallery(page.activePixelBuffer, formatName)
+                        if (path != null) count++
+                    }
+                    if (count > 0) {
+                        _effects.emit(AgeTraceContract.Effect.Notify("$count görsel galeriye kaydedildi ($formatName)"))
+                    } else {
+                        _effects.emit(AgeTraceContract.Effect.Notify("Görseller kaydedilemedi"))
                     }
                 }
             }
@@ -253,18 +375,127 @@ class AgeTraceViewModel(
                 _state.update {
                     it.copy(
                         currentImageSource = null,
-                        currentImageBytes = null,
-                        pixelBuffer = null,
-                        cleanDisplayBitmap = null,
-                        blurredDisplayBitmap = null,
-                        displayBitmap = null,
-                        detectedFaces = emptyList(),
-                        selectedFace = null,
-                        metrics = it.metrics.copy(
-                            isFaceDetected = false,
-                            statusMessage = "Görsel temizlendi"
-                        )
+                        pages = emptyList(),
+                        activePageIndex = 0,
+                        isCameraStreaming = false
                     )
+                }
+            }
+        }
+    }
+
+    private fun updateCurrentPage(transform: (AgeTraceContract.ImagePageData) -> AgeTraceContract.ImagePageData) {
+        _state.update { s ->
+            val curIndex = s.activePageIndex
+            if (curIndex in s.pages.indices) {
+                val updated = s.pages.toMutableList()
+                updated[curIndex] = transform(updated[curIndex])
+                s.copy(pages = updated)
+            } else s
+        }
+    }
+
+    private fun processMultipleFiles(files: List<Pair<String, ByteArray>>) {
+        if (files.isEmpty()) return
+        viewModelScope.launch {
+            val newPages = mutableListOf<AgeTraceContract.ImagePageData>()
+            for ((name, bytes) in files) {
+                val buffer = imageProcessorRepository.decodeImage(bytes) ?: continue
+                val bitmap = PlatformImageBridge.pixelBufferToImageBitmap(buffer)
+                val pageId = "page_${Random.nextLong()}"
+                newPages.add(
+                    AgeTraceContract.ImagePageData(
+                        id = pageId,
+                        name = name,
+                        bytes = bytes,
+                        pixelBuffer = buffer,
+                        cleanBitmap = bitmap,
+                        activePixelBuffer = buffer,
+                        displayBitmap = bitmap,
+                        isAnalyzing = true
+                    )
+                )
+            }
+
+            if (newPages.isEmpty()) {
+                _state.update { it.copy(errorMessage = "Görseller okunamadı.") }
+                return@launch
+            }
+
+            val startIndex = _state.value.pages.size
+            _state.update { s ->
+                s.copy(
+                    currentImageSource = ImageSource.LocalFile(newPages.first().name, newPages.first().bytes),
+                    pages = s.pages + newPages,
+                    activePageIndex = startIndex
+                )
+            }
+
+            // Launch concurrent background analysis for each added image page
+            for (page in newPages) {
+                launch {
+                    try {
+                        val analysisResult = analyzeImageUseCase(
+                            buffer = page.pixelBuffer,
+                            rawBytes = page.bytes,
+                            preferredEngine = _state.value.selectedEngine
+                        )
+
+                        val finalBuffer = if (analysisResult.rotationApplied != 0) {
+                            try {
+                                when (analysisResult.rotationApplied) {
+                                    90 -> page.pixelBuffer.rotate90(clockwise = false)
+                                    270 -> page.pixelBuffer.rotate90(clockwise = true)
+                                    180 -> page.pixelBuffer.rotate90(true).rotate90(true)
+                                    else -> page.pixelBuffer
+                                }
+                            } catch (_: Throwable) {
+                                page.pixelBuffer
+                            }
+                        } else page.pixelBuffer
+
+                        val finalBitmap = if (finalBuffer !== page.pixelBuffer) {
+                            PlatformImageBridge.pixelBufferToImageBitmap(finalBuffer)
+                        } else page.cleanBitmap
+
+                        val newBlurredIds = if (_state.value.isBlurAllEnabled) {
+                            analysisResult.faces.map { it.id }.toSet()
+                        } else emptySet()
+
+                        val (activeBuffer, activeBitmap) = renderPageDisplay(
+                            cleanBuffer = finalBuffer,
+                            cleanBitmap = finalBitmap,
+                            faces = analysisResult.faces,
+                            blurredFaceIds = newBlurredIds,
+                            customBlurRegions = emptyList()
+                        )
+
+                        _state.update { s ->
+                            val updatedPages = s.pages.map { p ->
+                                if (p.id == page.id) {
+                                    p.copy(
+                                        pixelBuffer = finalBuffer,
+                                        cleanBitmap = finalBitmap,
+                                        activePixelBuffer = activeBuffer,
+                                        displayBitmap = activeBitmap,
+                                        blurredFaceIds = newBlurredIds,
+                                        detectedFaces = analysisResult.faces,
+                                        selectedFace = analysisResult.faces.firstOrNull(),
+                                        metrics = analysisResult.metrics,
+                                        isAnalyzing = false
+                                    )
+                                } else p
+                            }
+                            s.copy(pages = updatedPages)
+                        }
+                    } catch (t: Throwable) {
+                        _state.update { s ->
+                            val updatedPages = s.pages.map { p ->
+                                if (p.id == page.id) p.copy(isAnalyzing = false) else p
+                            }
+                            s.copy(pages = updatedPages)
+                        }
+                    }
                 }
             }
         }
@@ -272,56 +503,56 @@ class AgeTraceViewModel(
 
     private fun processImageSource(source: ImageSource, bytes: ByteArray) {
         viewModelScope.launch {
-            _state.update { it.copy(isAnalyzing = true, errorMessage = null, currentImageBytes = bytes) }
             try {
                 val buffer = imageProcessorRepository.decodeImage(bytes)
                 if (buffer == null) {
-                    _state.update {
-                        it.copy(
-                            isAnalyzing = false,
-                            errorMessage = "Görsel formatı okunamadı veya dosya bozuk."
-                        )
-                    }
+                    _state.update { it.copy(errorMessage = "Görsel formatı okunamadı.") }
                     return@launch
                 }
 
                 val imageBitmap = PlatformImageBridge.pixelBufferToImageBitmap(buffer)
+                val pageId = "page_${Random.nextLong()}"
+                val initialPage = AgeTraceContract.ImagePageData(
+                    id = pageId,
+                    name = when (source) {
+                        is ImageSource.LocalFile -> source.name
+                        is ImageSource.PreloadedSample -> source.title
+                        else -> "Görsel"
+                    },
+                    bytes = bytes,
+                    pixelBuffer = buffer,
+                    cleanBitmap = imageBitmap,
+                    activePixelBuffer = buffer,
+                    displayBitmap = imageBitmap,
+                    isAnalyzing = true
+                )
 
-                // Immediately display the large image so the user sees their photo right away,
-                // while the shimmering wave runs across the ENTIRE large image area!
                 _state.update {
                     it.copy(
                         currentImageSource = source,
-                        pixelBuffer = buffer,
-                        cleanDisplayBitmap = imageBitmap,
-                        blurredDisplayBitmap = imageBitmap,
-                        displayBitmap = imageBitmap,
-                        detectedFaces = emptyList(),
-                        selectedFace = null,
-                        isAnalyzing = true
+                        pages = listOf(initialPage),
+                        activePageIndex = 0
                     )
                 }
 
-                // For reference samples, immediately load verified ground-truth biometric annotations
+                // Reference samples with ground truth annotations
                 if (source is ImageSource.PreloadedSample) {
                     val knownFaces = SampleFaceFactory.getKnownFacesForSample(source.id)
                     if (knownFaces.isNotEmpty()) {
                         val primaryFace = knownFaces.first()
                         val newBlurredIds = if (_state.value.isBlurAllEnabled) knownFaces.map { it.id }.toSet() else emptySet()
-                        val (activeBuffer, activeBitmap) = renderDisplayBitmap(
+                        val (activeBuffer, activeBitmap) = renderPageDisplay(
                             cleanBuffer = buffer,
                             cleanBitmap = imageBitmap,
                             faces = knownFaces,
-                            blurredFaceIds = newBlurredIds
+                            blurredFaceIds = newBlurredIds,
+                            customBlurRegions = emptyList()
                         )
 
-                        _state.update {
-                            it.copy(
-                                currentImageSource = source,
-                                pixelBuffer = buffer,
+                        updateCurrentPage { page ->
+                            page.copy(
+                                cleanBitmap = imageBitmap,
                                 activePixelBuffer = activeBuffer,
-                                cleanDisplayBitmap = imageBitmap,
-                                blurredDisplayBitmap = activeBitmap,
                                 displayBitmap = activeBitmap,
                                 blurredFaceIds = newBlurredIds,
                                 detectedFaces = knownFaces,
@@ -358,7 +589,7 @@ class AgeTraceViewModel(
                             180 -> buffer.rotate90(true).rotate90(true)
                             else -> buffer
                         }
-                    } catch (t: Throwable) {
+                    } catch (_: Throwable) {
                         buffer
                     }
                 } else buffer
@@ -369,24 +600,21 @@ class AgeTraceViewModel(
 
                 val newBlurredIds = if (_state.value.isBlurAllEnabled) {
                     analysisResult.faces.map { it.id }.toSet()
-                } else {
-                    _state.value.blurredFaceIds.intersect(analysisResult.faces.map { it.id }.toSet())
-                }
+                } else emptySet()
 
-                val (activeBuffer, activeBitmap) = renderDisplayBitmap(
+                val (activeBuffer, activeBitmap) = renderPageDisplay(
                     cleanBuffer = finalBuffer,
                     cleanBitmap = finalBitmap,
                     faces = analysisResult.faces,
-                    blurredFaceIds = newBlurredIds
+                    blurredFaceIds = newBlurredIds,
+                    customBlurRegions = emptyList()
                 )
 
-                _state.update {
-                    it.copy(
-                        currentImageSource = source,
+                updateCurrentPage { page ->
+                    page.copy(
                         pixelBuffer = finalBuffer,
+                        cleanBitmap = finalBitmap,
                         activePixelBuffer = activeBuffer,
-                        cleanDisplayBitmap = finalBitmap,
-                        blurredDisplayBitmap = activeBitmap,
                         displayBitmap = activeBitmap,
                         blurredFaceIds = newBlurredIds,
                         detectedFaces = analysisResult.faces,
@@ -396,31 +624,30 @@ class AgeTraceViewModel(
                     )
                 }
             } catch (t: Throwable) {
-                _state.update {
-                    it.copy(
-                        isAnalyzing = false,
-                        errorMessage = "Analiz sırasında hata oluştu: ${t.message}"
-                    )
-                }
+                updateCurrentPage { it.copy(isAnalyzing = false) }
             }
         }
     }
 
-    private fun renderDisplayBitmap(
+    private fun renderPageDisplay(
         cleanBuffer: PixelBuffer,
-        cleanBitmap: ImageBitmap,
+        cleanBitmap: ImageBitmap?,
         faces: List<DetectedFace>,
-        blurredFaceIds: Set<String>
-    ): Pair<PixelBuffer, ImageBitmap> {
-        if (blurredFaceIds.isEmpty()) {
+        blurredFaceIds: Set<String>,
+        customBlurRegions: List<CustomBlurRegion>
+    ): Pair<PixelBuffer, ImageBitmap?> {
+        val faceBoxes = faces.filter { blurredFaceIds.contains(it.id) }.map { it.boundingBox }
+        val customBoxes = customBlurRegions.map { it.toBoundingBox() }
+        val allBoxes = faceBoxes + customBoxes
+        if (allBoxes.isEmpty()) {
             return Pair(cleanBuffer, cleanBitmap)
         }
-        val boxesToBlur = faces.filter { blurredFaceIds.contains(it.id) }.map { it.boundingBox }
-        if (boxesToBlur.isEmpty()) {
-            return Pair(cleanBuffer, cleanBitmap)
+        val blurredBuffer = cleanBuffer.withBlurredFaces(allBoxes)
+        val blurredBitmap = try {
+            PlatformImageBridge.pixelBufferToImageBitmap(blurredBuffer)
+        } catch (_: Throwable) {
+            cleanBitmap
         }
-        val blurredBuffer = cleanBuffer.withBlurredFaces(boxesToBlur)
-        val blurredBitmap = PlatformImageBridge.pixelBufferToImageBitmap(blurredBuffer)
         return Pair(blurredBuffer, blurredBitmap)
     }
 
@@ -440,15 +667,31 @@ class AgeTraceViewModel(
 
                     val newBlurredIds = if (_state.value.isBlurAllEnabled) {
                         analysisResult.faces.map { it.id }.toSet()
-                    } else {
-                        _state.value.blurredFaceIds.intersect(analysisResult.faces.map { it.id }.toSet())
-                    }
+                    } else emptySet()
 
-                    val (activeBuffer, activeBitmap) = renderDisplayBitmap(
+                    val (activeBuffer, activeBitmap) = renderPageDisplay(
                         cleanBuffer = frameBuffer,
                         cleanBitmap = frameBitmap,
                         faces = analysisResult.faces,
-                        blurredFaceIds = newBlurredIds
+                        blurredFaceIds = newBlurredIds,
+                        customBlurRegions = emptyList()
+                    )
+
+                    val livePage = AgeTraceContract.ImagePageData(
+                        id = "camera_live",
+                        name = "Canlı Kamera",
+                        bytes = ByteArray(0),
+                        pixelBuffer = frameBuffer,
+                        cleanBitmap = frameBitmap,
+                        activePixelBuffer = activeBuffer,
+                        displayBitmap = activeBitmap,
+                        blurredFaceIds = newBlurredIds,
+                        detectedFaces = analysisResult.faces,
+                        selectedFace = analysisResult.faces.firstOrNull(),
+                        metrics = analysisResult.metrics.copy(
+                            statusMessage = "Canlı Kamera Akışı • Canlı Yüz Takibi Aktif"
+                        ),
+                        isAnalyzing = false
                     )
 
                     _state.update {
@@ -458,21 +701,11 @@ class AgeTraceViewModel(
                                 timestampMs = liveFrameCounter * 120L,
                                 bytes = ByteArray(0)
                             ),
-                            pixelBuffer = frameBuffer,
-                            activePixelBuffer = activeBuffer,
-                            cleanDisplayBitmap = frameBitmap,
-                            blurredDisplayBitmap = activeBitmap,
-                            displayBitmap = activeBitmap,
-                            blurredFaceIds = newBlurredIds,
-                            detectedFaces = analysisResult.faces,
-                            selectedFace = analysisResult.faces.firstOrNull(),
-                            metrics = analysisResult.metrics.copy(
-                                statusMessage = "Canlı Kamera Akışı • Canlı Yüz Takibi Aktif"
-                            ),
-                            isAnalyzing = false
+                            pages = listOf(livePage),
+                            activePageIndex = 0
                         )
                     }
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     // Skip single frame error in stream
                 }
                 delay(120) // ~8-10 FPS real-time live edge analysis

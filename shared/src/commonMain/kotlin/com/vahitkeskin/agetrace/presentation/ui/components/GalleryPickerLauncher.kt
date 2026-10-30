@@ -4,5 +4,5 @@ import androidx.compose.runtime.Composable
 
 @Composable
 expect fun rememberGalleryPickerLauncher(
-    onImagePicked: (name: String, bytes: ByteArray) -> Unit
+    onImagesPicked: (List<Pair<String, ByteArray>>) -> Unit
 ): () -> Unit

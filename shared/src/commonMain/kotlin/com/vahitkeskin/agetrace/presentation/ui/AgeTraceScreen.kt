@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vahitkeskin.agetrace.domain.model.CustomBlurRegion
 import com.vahitkeskin.agetrace.domain.model.DetectionMode
 import com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract
 import com.vahitkeskin.agetrace.presentation.mvi.AgeTraceViewModel
@@ -68,6 +69,9 @@ import com.vahitkeskin.agetrace.presentation.theme.SurfaceCard
 import com.vahitkeskin.agetrace.presentation.theme.TextMuted
 import com.vahitkeskin.agetrace.presentation.theme.TextPrimary
 import com.vahitkeskin.agetrace.presentation.theme.TextSecondary
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import com.vahitkeskin.agetrace.presentation.ui.components.CustomBlurOverlay
 import com.vahitkeskin.agetrace.presentation.ui.components.DetectedFaceAvatarsStrip
 import com.vahitkeskin.agetrace.presentation.ui.components.FacebookShimmerSkeletonViewport
 import com.vahitkeskin.agetrace.presentation.ui.components.FacebookShimmerViewportOverlay
@@ -115,8 +119,10 @@ fun AgeTraceScreen(
     }
 
     // Multiplatform Native Gallery Launcher (Android PhotoPicker, iOS Photos, Desktop FileDialog)
-    val galleryLauncher = rememberGalleryPickerLauncher { name, bytes ->
-        viewModel.handleIntent(AgeTraceContract.Intent.OnFileUploaded(name, bytes))
+    val galleryLauncher = rememberGalleryPickerLauncher { pickedFiles ->
+        if (pickedFiles.isNotEmpty()) {
+            viewModel.handleIntent(AgeTraceContract.Intent.OnMultipleFilesUploaded(pickedFiles))
+        }
     }
 
     // Multiplatform Native Camera Launcher with Runtime Permission Dialog
@@ -189,14 +195,25 @@ fun AgeTraceScreen(
                                     .fillMaxWidth()
                                     .weight(1f),
                                 state = state,
-                                onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
+                                onPageChange = { index -> viewModel.handleIntent(AgeTraceContract.Intent.SelectActivePage(index)) },
+                                onFaceClick = { face ->
+                                    viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id))
+                                    viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face))
+                                },
                                 onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
                                 onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAllBlur) },
                                 onToggleAgeBalloonClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAgeBalloon) },
+                                onToggleCustomBlurMode = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleCustomBlurMode) },
+                                onAddCustomBlur = { normX, normY -> viewModel.handleIntent(AgeTraceContract.Intent.AddCustomBlurRegion(normX, normY)) },
+                                onUpdateCustomBlur = { id, normX, normY, normW, normH ->
+                                    viewModel.handleIntent(AgeTraceContract.Intent.UpdateCustomBlurRegion(CustomBlurRegion(id, normX, normY, normW, normH)))
+                                },
+                                onRemoveCustomBlur = { id -> viewModel.handleIntent(AgeTraceContract.Intent.RemoveCustomBlurRegion(id)) },
                                 onPickFileClick = { galleryLauncher() },
                                 onCameraClick = { cameraLauncher() },
                                 onImageClick = { isFullscreenOpen = true },
-                                onExportClick = { format -> viewModel.handleIntent(AgeTraceContract.Intent.ExportCurrentImage(format)) }
+                                onExportClick = { format -> viewModel.handleIntent(AgeTraceContract.Intent.ExportCurrentImage(format)) },
+                                onExportAllClick = { format -> viewModel.handleIntent(AgeTraceContract.Intent.ExportAllImages(format)) }
                             )
 
                             if (state.detectedFaces.isNotEmpty()) {
@@ -206,7 +223,12 @@ fun AgeTraceScreen(
                                     pixelBuffer = state.pixelBuffer,
                                     selectedFace = state.selectedFace,
                                     blurredFaceIds = state.blurredFaceIds,
-                                    onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
+                                    isExpanded = state.isFaceListExpanded,
+                                    onToggleExpand = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceListExpanded) },
+                                    onFaceClick = { face ->
+                                        viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id))
+                                        viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face))
+                                    },
                                     onToggleFaceBlur = { faceId -> viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(faceId)) }
                                 )
                             }
@@ -246,14 +268,25 @@ fun AgeTraceScreen(
                                 .fillMaxWidth()
                                 .height(380.dp),
                             state = state,
-                            onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
+                            onPageChange = { index -> viewModel.handleIntent(AgeTraceContract.Intent.SelectActivePage(index)) },
+                            onFaceClick = { face ->
+                                viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id))
+                                viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face))
+                            },
                             onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
                             onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAllBlur) },
                             onToggleAgeBalloonClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAgeBalloon) },
+                            onToggleCustomBlurMode = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleCustomBlurMode) },
+                            onAddCustomBlur = { normX, normY -> viewModel.handleIntent(AgeTraceContract.Intent.AddCustomBlurRegion(normX, normY)) },
+                            onUpdateCustomBlur = { id, normX, normY, normW, normH ->
+                                viewModel.handleIntent(AgeTraceContract.Intent.UpdateCustomBlurRegion(CustomBlurRegion(id, normX, normY, normW, normH)))
+                            },
+                            onRemoveCustomBlur = { id -> viewModel.handleIntent(AgeTraceContract.Intent.RemoveCustomBlurRegion(id)) },
                             onPickFileClick = { galleryLauncher() },
                             onCameraClick = { cameraLauncher() },
                             onImageClick = { isFullscreenOpen = true },
-                            onExportClick = { format -> viewModel.handleIntent(AgeTraceContract.Intent.ExportCurrentImage(format)) }
+                            onExportClick = { format -> viewModel.handleIntent(AgeTraceContract.Intent.ExportCurrentImage(format)) },
+                            onExportAllClick = { format -> viewModel.handleIntent(AgeTraceContract.Intent.ExportAllImages(format)) }
                         )
 
                         if (state.detectedFaces.isNotEmpty()) {
@@ -263,7 +296,12 @@ fun AgeTraceScreen(
                                 pixelBuffer = state.pixelBuffer,
                                 selectedFace = state.selectedFace,
                                 blurredFaceIds = state.blurredFaceIds,
-                                onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
+                                isExpanded = state.isFaceListExpanded,
+                                onToggleExpand = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceListExpanded) },
+                                onFaceClick = { face ->
+                                    viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id))
+                                    viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face))
+                                },
                                 onToggleFaceBlur = { faceId -> viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(faceId)) }
                             )
                         }
@@ -490,14 +528,20 @@ private fun MinimalHeader(
 private fun MainViewport(
     modifier: Modifier = Modifier,
     state: AgeTraceContract.State,
+    onPageChange: (Int) -> Unit,
     onFaceClick: (com.vahitkeskin.agetrace.domain.model.DetectedFace) -> Unit,
     onRotateClick: () -> Unit,
     onToggleBlurClick: () -> Unit,
     onToggleAgeBalloonClick: () -> Unit,
+    onToggleCustomBlurMode: () -> Unit,
+    onAddCustomBlur: (normX: Float, normY: Float) -> Unit,
+    onUpdateCustomBlur: (id: String, normX: Float, normY: Float, normW: Float, normH: Float) -> Unit,
+    onRemoveCustomBlur: (id: String) -> Unit,
     onPickFileClick: () -> Unit,
     onCameraClick: () -> Unit,
     onImageClick: () -> Unit,
-    onExportClick: (AgeTraceContract.ExportFormat) -> Unit
+    onExportClick: (AgeTraceContract.ExportFormat) -> Unit,
+    onExportAllClick: (AgeTraceContract.ExportFormat) -> Unit
 ) {
     GlassmorphicCard(
         modifier = modifier,
@@ -510,38 +554,80 @@ private fun MainViewport(
             GlassSpecularBorderBrush
         }
     ) {
-        val displayBitmap = state.displayBitmap
-        val pixelBuffer = state.pixelBuffer
+        val pages = state.pages
+        if (pages.isNotEmpty()) {
+            val pagerState = rememberPagerState(
+                initialPage = state.activePageIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0)),
+                pageCount = { pages.size }
+            )
 
-        if (displayBitmap != null && pixelBuffer != null) {
+            LaunchedEffect(pagerState.currentPage) {
+                if (pagerState.currentPage != state.activePageIndex) {
+                    onPageChange(pagerState.currentPage)
+                }
+            }
+
+            LaunchedEffect(state.activePageIndex) {
+                if (state.activePageIndex in 0 until pages.size && pagerState.currentPage != state.activePageIndex) {
+                    pagerState.animateScrollToPage(state.activePageIndex)
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(20.dp))
-                    .clickable { onImageClick() },
-                contentAlignment = Alignment.Center
             ) {
-                Image(
-                    bitmap = displayBitmap,
-                    contentDescription = "Target",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
-                )
+                // HorizontalPager for smooth left/right swiping between uploaded images
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { pageIndex ->
+                    val page = pages.getOrNull(pageIndex) ?: return@HorizontalPager
+                    val displayBitmap = page.displayBitmap
+                    val pixelBuffer = page.pixelBuffer
 
-                FaceOverlayCanvas(
-                    modifier = Modifier.fillMaxSize(),
-                    faces = state.detectedFaces,
-                    imageWidth = pixelBuffer.width,
-                    imageHeight = pixelBuffer.height,
-                    selectedFace = state.selectedFace,
-                    onFaceClick = onFaceClick,
-                    isScanning = state.isCameraStreaming || state.isAnalyzing,
-                    isAgeBalloonVisible = state.isAgeBalloonVisible
-                )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable { onImageClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (displayBitmap != null) {
+                            Image(
+                                bitmap = displayBitmap,
+                                contentDescription = "Page Image",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
 
-                // Wavy Facebook Shimmer overlay while re-analyzing or processing image
-                if (state.isAnalyzing) {
-                    FacebookShimmerViewportOverlay()
+                        FaceOverlayCanvas(
+                            modifier = Modifier.fillMaxSize(),
+                            faces = page.detectedFaces,
+                            imageWidth = pixelBuffer.width,
+                            imageHeight = pixelBuffer.height,
+                            selectedFace = page.selectedFace,
+                            onFaceClick = onFaceClick,
+                            isScanning = state.isCameraStreaming || page.isAnalyzing,
+                            isAgeBalloonVisible = state.isAgeBalloonVisible
+                        )
+
+                        CustomBlurOverlay(
+                            modifier = Modifier.fillMaxSize(),
+                            customBlurRegions = page.customBlurRegions,
+                            imageWidth = pixelBuffer.width,
+                            imageHeight = pixelBuffer.height,
+                            isAddingMode = state.isAddingCustomBlur,
+                            onAddRegion = onAddCustomBlur,
+                            onUpdateRegion = onUpdateCustomBlur,
+                            onRemoveRegion = onRemoveCustomBlur
+                        )
+
+                        if (page.isAnalyzing) {
+                            FacebookShimmerViewportOverlay()
+                        }
+                    }
                 }
 
                 // Sleek Floating Control Header across top of viewport
@@ -549,14 +635,14 @@ private fun MainViewport(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.TopCenter)
-                        .padding(10.dp),
+                        .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Left Action Group: Rotate + Fullscreen Zoom
+                    // Left Action Group: Rotate + Fullscreen Zoom + Page Indicator
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         // Frosted Glass Rotate Button
                         GlassmorphicIconButton(
@@ -571,13 +657,87 @@ private fun MainViewport(
                             onClick = onImageClick,
                             size = 32.dp
                         )
+
+                        // Multi-page Counter & Add Image Button
+                        if (pages.size > 1) {
+                            Box(
+                                modifier = Modifier
+                                    .height(30.dp)
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(Color(0xCC0F172A))
+                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(999.dp))
+                                    .padding(horizontal = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "${pagerState.currentPage + 1}/${pages.size}",
+                                    color = TextPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Add More Images Button
+                        Box(
+                            modifier = Modifier
+                                .height(30.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(Color(0x990F172A))
+                                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(999.dp))
+                                .clickable { onPickFileClick() }
+                                .padding(horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "➕ Ekle",
+                                color = TextPrimary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
 
-                    // Right Toggle Group: Minor Blur + Age Balloon
+                    // Right Toggle Group: Custom Blur + Universal Blur + Age Balloon
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
+                        // Custom Blur Region Toggle Button
+                        Row(
+                            modifier = Modifier
+                                .height(32.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(
+                                    brush = if (state.isAddingCustomBlur) {
+                                        Brush.verticalGradient(
+                                            listOf(Color(0xD90284C7), Color(0xB30369A1))
+                                        )
+                                    } else {
+                                        Brush.verticalGradient(
+                                            listOf(Color(0xD90F172A), Color(0xB30F172A))
+                                        )
+                                    }
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (state.isAddingCustomBlur) AccentBlue else Color(0x33FFFFFF),
+                                    shape = RoundedCornerShape(999.dp)
+                                )
+                                .clickable { onToggleCustomBlurMode() }
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(text = "➕", fontSize = 10.sp)
+                            Text(
+                                text = "Sansür",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (state.isAddingCustomBlur) Color.White else TextSecondary
+                            )
+                        }
+
                         val isBlurActive = state.isBlurAllEnabled || state.isMinorBlurEnabled
                         val blurThumbOffset by animateDpAsState(
                             targetValue = if (isBlurActive) 13.dp else 2.dp,
@@ -589,7 +749,7 @@ private fun MainViewport(
                             label = "age_balloon_switch"
                         )
 
-                        // 1. Glassmorphic Switch Button for Universal Face Blur
+                        // 1. Universal Face Blur Switch
                         Row(
                             modifier = Modifier
                                 .height(32.dp)
@@ -617,20 +777,19 @@ private fun MainViewport(
                                     shape = RoundedCornerShape(999.dp)
                                 )
                                 .clickable { onToggleBlurClick() }
-                                .padding(horizontal = 8.dp),
+                                .padding(horizontal = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Text(
                                 text = if (isBlurActive) "🛡️ Bulanık" else "👁️ Net",
-                                fontSize = 10.5.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = if (isBlurActive) MinorColor else TextSecondary,
                                 maxLines = 1,
                                 softWrap = false
                             )
 
-                            // Smooth Capsule Switch Track & Moving Thumb
                             Box(
                                 modifier = Modifier
                                     .width(26.dp)
@@ -648,7 +807,7 @@ private fun MainViewport(
                             }
                         }
 
-                        // 2. Glassmorphic Switch Button for Age Balloon & Face Frame Visibility
+                        // 2. Age Balloon & Frame Switch
                         Row(
                             modifier = Modifier
                                 .height(32.dp)
@@ -676,20 +835,19 @@ private fun MainViewport(
                                     shape = RoundedCornerShape(999.dp)
                                 )
                                 .clickable { onToggleAgeBalloonClick() }
-                                .padding(horizontal = 8.dp),
+                                .padding(horizontal = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Text(
                                 text = "🎈 Yaş",
-                                fontSize = 10.5.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = if (state.isAgeBalloonVisible) Color(0xFF38BDF8) else TextSecondary,
                                 maxLines = 1,
                                 softWrap = false
                             )
 
-                            // Smooth Capsule Switch Track & Moving Thumb
                             Box(
                                 modifier = Modifier
                                     .width(26.dp)
@@ -709,62 +867,82 @@ private fun MainViewport(
                     }
                 }
 
+                // Adding-mode floating banner at bottom-center
+                if (state.isAddingCustomBlur) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 44.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Color(0xE60F172A))
+                            .border(1.dp, AccentBlue, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 12.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            text = "📍 Bulanıklık için görsele dokun (büyüt/küçült/taşı)",
+                            color = AccentBlue,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
                 // Sleek Floating Export Buttons at bottom-end of viewport
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(10.dp),
+                        .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    // Frosted Glass JPEG Download Button
+                    // Single JPG
                     Row(
                         modifier = Modifier
-                            .height(30.dp)
+                            .height(28.dp)
                             .clip(RoundedCornerShape(999.dp))
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    listOf(Color(0xD90F172A), Color(0xB30F172A))
-                                )
-                            )
+                            .background(Brush.verticalGradient(listOf(Color(0xD90F172A), Color(0xB30F172A))))
                             .border(1.dp, GlassSpecularBorderBrush, RoundedCornerShape(999.dp))
                             .clickable { onExportClick(AgeTraceContract.ExportFormat.JPEG) }
-                            .padding(horizontal = 9.dp),
+                            .padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
-                        Text(text = "⬇️", fontSize = 10.sp)
-                        Text(
-                            text = "JPG",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
+                        Text(text = "⬇️", fontSize = 9.sp)
+                        Text(text = "JPG", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                     }
 
-                    // Frosted Glass PNG Download Button
+                    // Single PNG
                     Row(
                         modifier = Modifier
-                            .height(30.dp)
+                            .height(28.dp)
                             .clip(RoundedCornerShape(999.dp))
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    listOf(Color(0xD90F172A), Color(0xB30F172A))
-                                )
-                            )
+                            .background(Brush.verticalGradient(listOf(Color(0xD90F172A), Color(0xB30F172A))))
                             .border(1.dp, GlassSpecularBorderBrush, RoundedCornerShape(999.dp))
                             .clickable { onExportClick(AgeTraceContract.ExportFormat.PNG) }
-                            .padding(horizontal = 9.dp),
+                            .padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
-                        Text(text = "⬇️", fontSize = 10.sp)
-                        Text(
-                            text = "PNG",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentBlue
-                        )
+                        Text(text = "⬇️", fontSize = 9.sp)
+                        Text(text = "PNG", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
+                    }
+
+                    // Batch Export when multiple images are present
+                    if (pages.size > 1) {
+                        Row(
+                            modifier = Modifier
+                                .height(28.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(Brush.verticalGradient(listOf(Color(0xD90284C7), Color(0xB30369A1))))
+                                .border(1.dp, AccentBlue, RoundedCornerShape(999.dp))
+                                .clickable { onExportAllClick(AgeTraceContract.ExportFormat.JPEG) }
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Text(text = "📦", fontSize = 9.sp)
+                            Text(text = "Tümü", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
                     }
                 }
             }

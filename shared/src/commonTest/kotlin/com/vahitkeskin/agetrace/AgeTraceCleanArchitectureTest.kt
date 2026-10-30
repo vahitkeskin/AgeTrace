@@ -212,20 +212,20 @@ class AgeTraceCleanArchitectureTest {
             biometrics = FacialBiometrics(0.8f, 0.2f, 0.2f, 0.9f, Pair(100f, 100f))
         )
         val loadedState = com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract.State(
-            detectedFaces = listOf(face),
-            selectedFace = face
+            pages = listOf(
+                com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract.ImagePageData(
+                    id = "test_page",
+                    pixelBuffer = SampleFaceFactory.generatePortrait(25),
+                    cleanBitmap = null,
+                    detectedFaces = listOf(face),
+                    selectedFace = face
+                )
+            )
         )
         val hasActiveImage = loadedState.displayBitmap != null || loadedState.currentImageSource != null || loadedState.detectedFaces.isNotEmpty()
         assertTrue(hasActiveImage, "BackHandler should be enabled when an image or detected faces are present")
 
-        val clearedState = loadedState.copy(
-            displayBitmap = null,
-            pixelBuffer = null,
-            currentImageSource = null,
-            currentImageBytes = null,
-            detectedFaces = emptyList(),
-            selectedFace = null
-        )
+        val clearedState = loadedState.copy(pages = emptyList())
         val hasActiveImageAfterClear = clearedState.displayBitmap != null || clearedState.currentImageSource != null || clearedState.detectedFaces.isNotEmpty()
         assertTrue(!hasActiveImageAfterClear, "BackHandler should be disabled when image area is empty, enabling system app exit")
     }
@@ -266,7 +266,6 @@ class AgeTraceCleanArchitectureTest {
     @Test
     fun testPlatformOnnxEstimatorSafety() {
         val dummyFloats = FloatArray(3 * 96 * 96)
-        // If not initialized, estimate safely returns null without throwing exceptions
         if (!com.vahitkeskin.agetrace.data.cv.PlatformOnnxEstimator.isSupported()) {
             val res = com.vahitkeskin.agetrace.data.cv.PlatformOnnxEstimator.estimate(dummyFloats)
             assertEquals(null, res)

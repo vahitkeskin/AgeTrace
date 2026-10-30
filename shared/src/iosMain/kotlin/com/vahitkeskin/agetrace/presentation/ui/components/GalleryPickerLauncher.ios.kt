@@ -5,9 +5,11 @@ import com.vahitkeskin.agetrace.data.platform.PlatformImageBridge
 
 @Composable
 actual fun rememberGalleryPickerLauncher(
-    onImagePicked: (name: String, bytes: ByteArray) -> Unit
+    onImagesPicked: (List<Pair<String, ByteArray>>) -> Unit
 ): () -> Unit {
     return {
-        PlatformImageBridge.openFilePicker(onImagePicked)
+        PlatformImageBridge.openFilePicker { name, bytes ->
+            onImagesPicked(listOf(Pair(name, bytes)))
+        }
     }
 }
