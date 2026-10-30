@@ -139,15 +139,12 @@ class AgeTraceViewModel(
             }
 
             is AgeTraceContract.Intent.SelectFace -> {
-                val pageIndex = _state.value.pages.indexOfFirst { p ->
-                    p.detectedFaces.any { it.id == intent.face.id }
-                }.takeIf { it >= 0 } ?: _state.value.activePageIndex
-
+                val targetIndex = intent.pageIndex ?: _state.value.activePageIndex
                 _state.update { s ->
-                    if (pageIndex in s.pages.indices) {
+                    if (targetIndex in s.pages.indices) {
                         val updated = s.pages.toMutableList()
-                        updated[pageIndex] = updated[pageIndex].copy(selectedFace = intent.face)
-                        s.copy(pages = updated, activePageIndex = pageIndex)
+                        updated[targetIndex] = updated[targetIndex].copy(selectedFace = intent.face)
+                        s.copy(pages = updated)
                     } else s
                 }
             }
@@ -252,11 +249,8 @@ class AgeTraceViewModel(
                 lastToggleFaceId = intent.faceId
                 lastToggleTimeMark = now
 
-                val pageIndex = intent.pageIndex ?: _state.value.pages.indexOfFirst { p ->
-                    p.detectedFaces.any { it.id == intent.faceId }
-                }.takeIf { it >= 0 } ?: _state.value.activePageIndex
-
-                val curPage = _state.value.pages.getOrNull(pageIndex) ?: return
+                val targetIndex = intent.pageIndex ?: _state.value.activePageIndex
+                val curPage = _state.value.pages.getOrNull(targetIndex) ?: return
                 val current = curPage.blurredFaceIds
                 val newBlurredIds = if (current.contains(intent.faceId)) current - intent.faceId else current + intent.faceId
 
@@ -271,10 +265,10 @@ class AgeTraceViewModel(
                 val selected = curPage.detectedFaces.firstOrNull { it.id == intent.faceId } ?: curPage.selectedFace
 
                 _state.update { s ->
-                    if (pageIndex in s.pages.indices) {
+                    if (targetIndex in s.pages.indices) {
                         val updated = s.pages.toMutableList()
                         val allBlurred = curPage.detectedFaces.isNotEmpty() && newBlurredIds.containsAll(curPage.detectedFaces.map { it.id })
-                        updated[pageIndex] = curPage.copy(
+                        updated[targetIndex] = curPage.copy(
                             blurredFaceIds = newBlurredIds,
                             activePixelBuffer = activeBuffer,
                             displayBitmap = activeBitmap,
@@ -282,7 +276,6 @@ class AgeTraceViewModel(
                         )
                         s.copy(
                             pages = updated,
-                            activePageIndex = pageIndex,
                             isBlurAllEnabled = allBlurred,
                             isMinorBlurEnabled = allBlurred
                         )
@@ -492,14 +485,18 @@ class AgeTraceViewModel(
                             PlatformImageBridge.pixelBufferToImageBitmap(finalBuffer)
                         } else page.cleanBitmap
 
+                        val scopedFaces = analysisResult.faces.map { f ->
+                            f.copy(id = "${page.id}_${f.id}")
+                        }
+
                         val newBlurredIds = if (_state.value.isBlurAllEnabled) {
-                            analysisResult.faces.map { it.id }.toSet()
+                            scopedFaces.map { it.id }.toSet()
                         } else emptySet()
 
                         val (activeBuffer, activeBitmap) = renderPageDisplay(
                             cleanBuffer = finalBuffer,
                             cleanBitmap = finalBitmap,
-                            faces = analysisResult.faces,
+                            faces = scopedFaces,
                             blurredFaceIds = newBlurredIds,
                             customBlurRegions = emptyList()
                         )
@@ -513,8 +510,8 @@ class AgeTraceViewModel(
                                         activePixelBuffer = activeBuffer,
                                         displayBitmap = activeBitmap,
                                         blurredFaceIds = newBlurredIds,
-                                        detectedFaces = analysisResult.faces,
-                                        selectedFace = analysisResult.faces.firstOrNull(),
+                                        detectedFaces = scopedFaces,
+                                        selectedFace = scopedFaces.firstOrNull(),
                                         metrics = analysisResult.metrics,
                                         isAnalyzing = false
                                     )
@@ -632,14 +629,17 @@ class AgeTraceViewModel(
                     PlatformImageBridge.pixelBufferToImageBitmap(finalBuffer)
                 } else imageBitmap
 
+                val scopedFaces = analysisResult.faces.map { f ->
+                    f.copy(id = "${pageId}_${f.id}")
+                }
                 val newBlurredIds = if (_state.value.isBlurAllEnabled) {
-                    analysisResult.faces.map { it.id }.toSet()
+                    scopedFaces.map { it.id }.toSet()
                 } else emptySet()
 
                 val (activeBuffer, activeBitmap) = renderPageDisplay(
                     cleanBuffer = finalBuffer,
                     cleanBitmap = finalBitmap,
-                    faces = analysisResult.faces,
+                    faces = scopedFaces,
                     blurredFaceIds = newBlurredIds,
                     customBlurRegions = emptyList()
                 )
@@ -651,8 +651,8 @@ class AgeTraceViewModel(
                         activePixelBuffer = activeBuffer,
                         displayBitmap = activeBitmap,
                         blurredFaceIds = newBlurredIds,
-                        detectedFaces = analysisResult.faces,
-                        selectedFace = analysisResult.faces.firstOrNull(),
+                        detectedFaces = scopedFaces,
+                        selectedFace = scopedFaces.firstOrNull(),
                         metrics = analysisResult.metrics,
                         isAnalyzing = false
                     )

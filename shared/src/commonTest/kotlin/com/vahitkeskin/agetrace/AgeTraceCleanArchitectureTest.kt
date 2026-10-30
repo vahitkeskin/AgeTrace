@@ -335,4 +335,43 @@ class AgeTraceCleanArchitectureTest {
         next = if (current.contains(face.id)) current - face.id else current + face.id
         assertEquals(setOf("face_1"), next, "Face must be re-added to blurredFaceIds on third tap (re-blurred)")
     }
+
+    @Test
+    fun testMultiPageFaceClickDoesNotResetActivePageIndex() {
+        val face0 = DetectedFace("page_0_face_1", BoundingBox(0.2f, 0.2f, 0.5f, 0.5f), 0.9f, 25, AgeClassification.YOUNG_ADULT, FacialBiometrics(0.8f, 0.2f, 0.2f, 0.9f, Pair(100f, 100f)))
+        val face1 = DetectedFace("page_1_face_1", BoundingBox(0.2f, 0.2f, 0.5f, 0.5f), 0.9f, 40, AgeClassification.ADULT, FacialBiometrics(0.8f, 0.2f, 0.2f, 0.9f, Pair(100f, 100f)))
+
+        val page0 = com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract.ImagePageData(
+            id = "page_0",
+            pixelBuffer = SampleFaceFactory.generatePortrait(25),
+            detectedFaces = listOf(face0),
+            blurredFaceIds = emptySet()
+        )
+        val page1 = com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract.ImagePageData(
+            id = "page_1",
+            pixelBuffer = SampleFaceFactory.generatePortrait(40),
+            detectedFaces = listOf(face1),
+            blurredFaceIds = emptySet()
+        )
+        val state = com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract.State(
+            pages = listOf(page0, page1),
+            activePageIndex = 1 // Currently viewing page 1 (2nd image)
+        )
+
+        assertEquals(1, state.activePageIndex)
+        assertEquals(page1, state.currentPage)
+
+        // When toggling face on page 1 with pageIndex = 1
+        val targetIndex = 1
+        val curPage = state.pages[targetIndex]
+        val newBlurred = curPage.blurredFaceIds + face1.id
+        val updatedPages = state.pages.toMutableList()
+        updatedPages[targetIndex] = curPage.copy(blurredFaceIds = newBlurred)
+        val newState = state.copy(pages = updatedPages)
+
+        // Verify activePageIndex REMAINS 1 (does not reset to 0)
+        assertEquals(1, newState.activePageIndex, "Active page index must remain 1 after clicking face on page 1")
+        assertTrue(newState.pages[1].blurredFaceIds.contains(face1.id), "Page 1 face must be blurred")
+        assertTrue(newState.pages[0].blurredFaceIds.isEmpty(), "Page 0 face must remain untouched")
+    }
 }

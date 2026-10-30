@@ -111,7 +111,7 @@ object AgeTraceContract {
         data object TriggerFilePicker : Intent
         data object TriggerCameraPicker : Intent
         data object ToggleCameraStream : Intent
-        data class SelectFace(val face: DetectedFace) : Intent
+        data class SelectFace(val face: DetectedFace, val pageIndex: Int? = null) : Intent
         data object ClearCurrentAnalysis : Intent
         data object RerunAnalysis : Intent
         data object RotateCurrentImage : Intent

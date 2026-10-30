@@ -208,9 +208,9 @@ fun AgeTraceScreen(
                                     .weight(1f),
                                 state = state,
                                 onPageChange = { index -> viewModel.handleIntent(AgeTraceContract.Intent.SelectActivePage(index)) },
-                                onFaceClick = { face ->
-                                    viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id))
-                                    viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face))
+                                onFaceClick = { face, pageIndex ->
+                                    viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id, pageIndex))
+                                    viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face, pageIndex))
                                 },
                                 onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
                                 onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAllBlur) },
@@ -238,10 +238,10 @@ fun AgeTraceScreen(
                                     isExpanded = state.isFaceListExpanded,
                                     onToggleExpand = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceListExpanded) },
                                     onFaceClick = { face ->
-                                        viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id))
-                                        viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face))
+                                        viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id, state.activePageIndex))
+                                        viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face, state.activePageIndex))
                                     },
-                                    onToggleFaceBlur = { faceId -> viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(faceId)) }
+                                    onToggleFaceBlur = { faceId -> viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(faceId, state.activePageIndex)) }
                                 )
                             }
 
@@ -281,9 +281,9 @@ fun AgeTraceScreen(
                                 .height(380.dp),
                             state = state,
                             onPageChange = { index -> viewModel.handleIntent(AgeTraceContract.Intent.SelectActivePage(index)) },
-                            onFaceClick = { face ->
-                                viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id))
-                                viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face))
+                            onFaceClick = { face, pageIndex ->
+                                viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id, pageIndex))
+                                viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face, pageIndex))
                             },
                             onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
                             onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAllBlur) },
@@ -311,10 +311,10 @@ fun AgeTraceScreen(
                                 isExpanded = state.isFaceListExpanded,
                                 onToggleExpand = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceListExpanded) },
                                 onFaceClick = { face ->
-                                    viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id))
-                                    viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face))
+                                    viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id, state.activePageIndex))
+                                    viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face, state.activePageIndex))
                                 },
-                                onToggleFaceBlur = { faceId -> viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(faceId)) }
+                                onToggleFaceBlur = { faceId -> viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(faceId, state.activePageIndex)) }
                             )
                         }
 
@@ -350,8 +350,8 @@ fun AgeTraceScreen(
             FullscreenZoomableImageViewer(
                 state = state,
                 onFaceClick = { face ->
-                    viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id))
-                    viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face))
+                    viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id, state.activePageIndex))
+                    viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face, state.activePageIndex))
                 },
                 onDismiss = { isFullscreenOpen = false }
             )
@@ -536,7 +536,7 @@ private fun MainViewport(
     modifier: Modifier = Modifier,
     state: AgeTraceContract.State,
     onPageChange: (Int) -> Unit,
-    onFaceClick: (com.vahitkeskin.agetrace.domain.model.DetectedFace) -> Unit,
+    onFaceClick: (com.vahitkeskin.agetrace.domain.model.DetectedFace, Int) -> Unit,
     onRotateClick: () -> Unit,
     onToggleBlurClick: () -> Unit,
     onToggleAgeBalloonClick: () -> Unit,
@@ -708,7 +708,7 @@ private fun MainViewport(
                                                 }
 
                                                 if (clickedFace != null) {
-                                                    onFaceClick(clickedFace)
+                                                    onFaceClick(clickedFace, pageIndex)
                                                 }
                                             }
                                         }
@@ -761,7 +761,7 @@ private fun MainViewport(
                                 imageWidth = pixelBuffer.width,
                                 imageHeight = pixelBuffer.height,
                                 selectedFace = page.selectedFace,
-                                onFaceClick = onFaceClick,
+                                onFaceClick = { face -> onFaceClick(face, pageIndex) },
                                 isScanning = state.isCameraStreaming || page.isAnalyzing,
                                 isAgeBalloonVisible = state.isAgeBalloonVisible
                             )
