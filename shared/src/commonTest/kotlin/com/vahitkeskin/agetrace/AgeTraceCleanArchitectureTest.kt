@@ -295,4 +295,44 @@ class AgeTraceCleanArchitectureTest {
         val face2CenterIdx = ((faceBox2.centerY * portrait.height).toInt() * portrait.width) + (faceBox2.centerX * portrait.width).toInt()
         assertTrue(portrait.pixels[face2CenterIdx] != singleFaceBlurred.pixels[face2CenterIdx], "Blurred face2 must have blurred pixels")
     }
+
+    @Test
+    fun testFaceBlurTogglingCycle() {
+        val face = DetectedFace(
+            id = "face_1",
+            boundingBox = BoundingBox(0.2f, 0.2f, 0.5f, 0.6f),
+            confidenceScore = 0.9f,
+            estimatedAge = 30,
+            classification = AgeClassification.ADULT,
+            biometrics = FacialBiometrics(0.8f, 0.2f, 0.2f, 0.9f, Pair(100f, 100f))
+        )
+        val initialPage = com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract.ImagePageData(
+            id = "page_1",
+            pixelBuffer = SampleFaceFactory.generatePortrait(30),
+            detectedFaces = listOf(face),
+            blurredFaceIds = emptySet()
+        )
+        val state = com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract.State(
+            pages = listOf(initialPage),
+            activePageIndex = 0
+        )
+
+        // 1. Initial: face is unblurred
+        assertTrue(!state.blurredFaceIds.contains(face.id))
+
+        // 2. Click face -> Toggle blur ON
+        var current = state.currentPage!!.blurredFaceIds
+        var next = if (current.contains(face.id)) current - face.id else current + face.id
+        assertEquals(setOf("face_1"), next, "Face must be added to blurredFaceIds on first tap")
+
+        // 3. Click face again -> Toggle blur OFF (unblur)
+        current = next
+        next = if (current.contains(face.id)) current - face.id else current + face.id
+        assertTrue(next.isEmpty(), "Face must be removed from blurredFaceIds on second tap (unblurred)")
+
+        // 4. Click face again -> Toggle blur ON again (re-blurred)
+        current = next
+        next = if (current.contains(face.id)) current - face.id else current + face.id
+        assertEquals(setOf("face_1"), next, "Face must be re-added to blurredFaceIds on third tap (re-blurred)")
+    }
 }

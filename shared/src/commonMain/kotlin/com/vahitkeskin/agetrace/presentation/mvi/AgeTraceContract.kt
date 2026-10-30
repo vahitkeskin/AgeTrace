@@ -117,7 +117,7 @@ object AgeTraceContract {
         data object RotateCurrentImage : Intent
         data object ToggleMinorBlur : Intent
         data object ToggleAllBlur : Intent
-        data class ToggleFaceBlur(val faceId: String) : Intent
+        data class ToggleFaceBlur(val faceId: String, val pageIndex: Int? = null) : Intent
         data object ToggleCustomBlurMode : Intent
         data class AddCustomBlurRegion(val normX: Float, val normY: Float) : Intent
         data class UpdateCustomBlurRegion(val region: CustomBlurRegion) : Intent

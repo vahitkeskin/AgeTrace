@@ -42,6 +42,8 @@ class AgeTraceViewModel(
 
     private var cameraStreamJob: Job? = null
     private var liveFrameCounter = 0L
+    private var lastToggleFaceId: String? = null
+    private var lastToggleTimeMark: kotlin.time.ComparableTimeMark? = null
 
     init {
         loadInitialData()
@@ -137,8 +139,16 @@ class AgeTraceViewModel(
             }
 
             is AgeTraceContract.Intent.SelectFace -> {
-                updateCurrentPage { page ->
-                    page.copy(selectedFace = intent.face)
+                val pageIndex = _state.value.pages.indexOfFirst { p ->
+                    p.detectedFaces.any { it.id == intent.face.id }
+                }.takeIf { it >= 0 } ?: _state.value.activePageIndex
+
+                _state.update { s ->
+                    if (pageIndex in s.pages.indices) {
+                        val updated = s.pages.toMutableList()
+                        updated[pageIndex] = updated[pageIndex].copy(selectedFace = intent.face)
+                        s.copy(pages = updated, activePageIndex = pageIndex)
+                    } else s
                 }
             }
 
@@ -232,7 +242,21 @@ class AgeTraceViewModel(
             }
 
             is AgeTraceContract.Intent.ToggleFaceBlur -> {
-                val curPage = _state.value.currentPage ?: return
+                val now = kotlin.time.TimeSource.Monotonic.markNow()
+                val prevMark = lastToggleTimeMark
+                if (lastToggleFaceId == intent.faceId && prevMark != null) {
+                    if ((now - prevMark).inWholeMilliseconds < 250) {
+                        return
+                    }
+                }
+                lastToggleFaceId = intent.faceId
+                lastToggleTimeMark = now
+
+                val pageIndex = intent.pageIndex ?: _state.value.pages.indexOfFirst { p ->
+                    p.detectedFaces.any { it.id == intent.faceId }
+                }.takeIf { it >= 0 } ?: _state.value.activePageIndex
+
+                val curPage = _state.value.pages.getOrNull(pageIndex) ?: return
                 val current = curPage.blurredFaceIds
                 val newBlurredIds = if (current.contains(intent.faceId)) current - intent.faceId else current + intent.faceId
 
@@ -246,13 +270,23 @@ class AgeTraceViewModel(
 
                 val selected = curPage.detectedFaces.firstOrNull { it.id == intent.faceId } ?: curPage.selectedFace
 
-                updateCurrentPage { page ->
-                    page.copy(
-                        blurredFaceIds = newBlurredIds,
-                        activePixelBuffer = activeBuffer,
-                        displayBitmap = activeBitmap,
-                        selectedFace = selected
-                    )
+                _state.update { s ->
+                    if (pageIndex in s.pages.indices) {
+                        val updated = s.pages.toMutableList()
+                        val allBlurred = curPage.detectedFaces.isNotEmpty() && newBlurredIds.containsAll(curPage.detectedFaces.map { it.id })
+                        updated[pageIndex] = curPage.copy(
+                            blurredFaceIds = newBlurredIds,
+                            activePixelBuffer = activeBuffer,
+                            displayBitmap = activeBitmap,
+                            selectedFace = selected
+                        )
+                        s.copy(
+                            pages = updated,
+                            activePageIndex = pageIndex,
+                            isBlurAllEnabled = allBlurred,
+                            isMinorBlurEnabled = allBlurred
+                        )
+                    } else s
                 }
             }
 

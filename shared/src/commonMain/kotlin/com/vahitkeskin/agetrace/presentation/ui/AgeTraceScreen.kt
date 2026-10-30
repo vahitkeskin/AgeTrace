@@ -42,6 +42,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -53,9 +54,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.min
 import kotlin.math.roundToInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vahitkeskin.agetrace.domain.model.CustomBlurRegion
@@ -346,7 +349,10 @@ fun AgeTraceScreen(
         ) {
             FullscreenZoomableImageViewer(
                 state = state,
-                onFaceClick = { face -> viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face)) },
+                onFaceClick = { face ->
+                    viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id))
+                    viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face))
+                },
                 onDismiss = { isFullscreenOpen = false }
             )
         }
@@ -597,6 +603,13 @@ private fun MainViewport(
                     val displayBitmap = page.displayBitmap
                     val pixelBuffer = page.pixelBuffer
 
+                    val density = LocalDensity.current
+                    val currentZoomScale by rememberUpdatedState(zoomScale)
+                    val currentPanOffset by rememberUpdatedState(panOffset)
+                    val currentFaces by rememberUpdatedState(page.detectedFaces)
+                    val currentIsAddingCustomBlur by rememberUpdatedState(state.isAddingCustomBlur)
+                    val currentIsAgeBalloonVisible by rememberUpdatedState(state.isAgeBalloonVisible)
+
                     // Direct two-finger pinch-to-zoom, pan and double-tap zoom inside ViewPager
                     BoxWithConstraints(
                         modifier = Modifier
@@ -604,7 +617,7 @@ private fun MainViewport(
                             .pointerInput(pageIndex) {
                                 detectTapGestures(
                                     onDoubleTap = { tapOffset ->
-                                        if (zoomScale > 1.15f) {
+                                        if (currentZoomScale > 1.15f) {
                                             zoomScale = 1f
                                             panOffset = Offset.Zero
                                         } else {
@@ -618,6 +631,86 @@ private fun MainViewport(
                                                 x = (diff.x * 1.5f).coerceIn(-maxOffsetX, maxOffsetX),
                                                 y = (diff.y * 1.5f).coerceIn(-maxOffsetY, maxOffsetY)
                                             )
+                                        }
+                                    },
+                                    onTap = { tapOffset ->
+                                        val imgW = pixelBuffer.width.toFloat()
+                                        val imgH = pixelBuffer.height.toFloat()
+                                        if (imgW > 0f && imgH > 0f && size.width > 0 && size.height > 0) {
+                                            val fitScale = min(size.width.toFloat() / imgW, size.height.toFloat() / imgH)
+                                            val renderedWPx = imgW * fitScale
+                                            val renderedHPx = imgH * fitScale
+                                            val offsetXPx = (size.width.toFloat() - renderedWPx) / 2f
+                                            val offsetYPx = (size.height.toFloat() - renderedHPx) / 2f
+
+                                            val centerX = size.width / 2f
+                                            val centerY = size.height / 2f
+                                            val contentX = (tapOffset.x - currentPanOffset.x - centerX) / currentZoomScale + centerX
+                                            val contentY = (tapOffset.y - currentPanOffset.y - centerY) / currentZoomScale + centerY
+
+                                            if (currentIsAddingCustomBlur) {
+                                                val localX = contentX - offsetXPx
+                                                val localY = contentY - offsetYPx
+                                                if (localX in 0f..renderedWPx && localY in 0f..renderedHPx) {
+                                                    val normX = (localX / renderedWPx).coerceIn(0.01f, 0.90f)
+                                                    val normY = (localY / renderedHPx).coerceIn(0.01f, 0.90f)
+                                                    onAddCustomBlur(normX, normY)
+                                                }
+                                            } else {
+                                                val normX = (contentX - offsetXPx) / renderedWPx
+                                                val normY = (contentY - offsetYPx) / renderedHPx
+
+                                                val hitFaces = currentFaces.filter { face ->
+                                                    val box = face.boundingBox
+                                                    val marginX = box.normalizedWidth * 0.12f
+                                                    val marginY = box.normalizedHeight * 0.12f
+                                                    val inFaceBox = (normX >= (box.normalizedX - marginX) &&
+                                                                     normX <= (box.normalizedX + box.normalizedWidth + marginX) &&
+                                                                     normY >= (box.normalizedY - marginY) &&
+                                                                     normY <= (box.normalizedY + box.normalizedHeight + marginY))
+
+                                                    val fxPx = offsetXPx + box.normalizedX * renderedWPx
+                                                    val fyPx = offsetYPx + box.normalizedY * renderedHPx
+                                                    val fwPx = box.normalizedWidth * renderedWPx
+                                                    val fhPx = box.normalizedHeight * renderedHPx
+                                                    val minBalloonWPx = with(density) { 64.dp.toPx() }
+                                                    val maxBalloonWPx = with(density) { 100.dp.toPx() }
+                                                    val balloonWidthPx = (fwPx * 0.90f).coerceIn(minBalloonWPx, maxBalloonWPx)
+                                                    val faceCenterX = fxPx + fwPx / 2f
+                                                    val balloonXPx = (faceCenterX - balloonWidthPx / 2f).coerceIn(0f, (size.width.toFloat() - balloonWidthPx).coerceAtLeast(0f))
+                                                    val balloonHeightPx = with(density) { 26.dp.toPx() }
+                                                    val balloonSpacingPx = with(density) { 3.dp.toPx() }
+                                                    val hasRoomAbove = (fyPx >= balloonHeightPx + balloonSpacingPx + 2f)
+                                                    val balloonYPx = if (hasRoomAbove) {
+                                                        fyPx - balloonHeightPx - balloonSpacingPx
+                                                    } else {
+                                                        fyPx + fhPx + balloonSpacingPx
+                                                    }
+
+                                                    val inBalloon = currentIsAgeBalloonVisible && (
+                                                        contentX >= (balloonXPx - 4f) &&
+                                                        contentX <= (balloonXPx + balloonWidthPx + 4f) &&
+                                                        contentY >= (balloonYPx - 4f) &&
+                                                        contentY <= (balloonYPx + balloonHeightPx + 4f)
+                                                    )
+
+                                                    inFaceBox || inBalloon
+                                                }
+
+                                                val clickedFace = if (hitFaces.size <= 1) {
+                                                    hitFaces.firstOrNull()
+                                                } else {
+                                                    hitFaces.minByOrNull { face ->
+                                                        val dx = normX - face.boundingBox.centerX
+                                                        val dy = normY - face.boundingBox.centerY
+                                                        dx * dx + dy * dy
+                                                    }
+                                                }
+
+                                                if (clickedFace != null) {
+                                                    onFaceClick(clickedFace)
+                                                }
+                                            }
                                         }
                                     }
                                 )

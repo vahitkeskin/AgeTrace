@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import kotlin.math.min
 import com.vahitkeskin.agetrace.presentation.mvi.AgeTraceContract
 import com.vahitkeskin.agetrace.presentation.theme.AccentBlue
 import com.vahitkeskin.agetrace.presentation.theme.GlassBorder
@@ -82,6 +84,10 @@ fun FullscreenZoomableImageViewer(
     var offset by remember { mutableStateOf(Offset.Zero) }
     var showOverlayInViewer by remember { mutableStateOf(state.isAgeBalloonVisible) }
 
+    val currentScale by rememberUpdatedState(scale)
+    val currentOffset by rememberUpdatedState(offset)
+    val currentFaces by rememberUpdatedState(state.detectedFaces)
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -97,7 +103,7 @@ fun FullscreenZoomableImageViewer(
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onDoubleTap = { tapOffset ->
-                            if (scale > 1.15f) {
+                            if (currentScale > 1.15f) {
                                 scale = 1f
                                 offset = Offset.Zero
                             } else {
@@ -111,6 +117,40 @@ fun FullscreenZoomableImageViewer(
                                     x = (diff.x * 1.5f).coerceIn(-maxOffsetX, maxOffsetX),
                                     y = (diff.y * 1.5f).coerceIn(-maxOffsetY, maxOffsetY)
                                 )
+                            }
+                        },
+                        onTap = { tapOffset ->
+                            if (size.width > 0 && size.height > 0) {
+                                val imgW = pixelBuffer.width.toFloat()
+                                val imgH = pixelBuffer.height.toFloat()
+                                if (imgW > 0f && imgH > 0f) {
+                                    val fitScale = min(size.width.toFloat() / imgW, size.height.toFloat() / imgH)
+                                    val renderedWPx = imgW * fitScale
+                                    val renderedHPx = imgH * fitScale
+                                    val offsetXPx = (size.width.toFloat() - renderedWPx) / 2f
+                                    val offsetYPx = (size.height.toFloat() - renderedHPx) / 2f
+
+                                    val centerX = size.width / 2f
+                                    val centerY = size.height / 2f
+                                    val contentX = (tapOffset.x - currentOffset.x - centerX) / currentScale + centerX
+                                    val contentY = (tapOffset.y - currentOffset.y - centerY) / currentScale + centerY
+
+                                    val normX = (contentX - offsetXPx) / renderedWPx
+                                    val normY = (contentY - offsetYPx) / renderedHPx
+
+                                    val hitFace = currentFaces.find { face ->
+                                        val box = face.boundingBox
+                                        val marginX = box.normalizedWidth * 0.12f
+                                        val marginY = box.normalizedHeight * 0.12f
+                                        normX >= (box.normalizedX - marginX) &&
+                                        normX <= (box.normalizedX + box.normalizedWidth + marginX) &&
+                                        normY >= (box.normalizedY - marginY) &&
+                                        normY <= (box.normalizedY + box.normalizedHeight + marginY)
+                                    }
+                                    if (hitFace != null) {
+                                        onFaceClick(hitFace)
+                                    }
+                                }
                             }
                         }
                     )
