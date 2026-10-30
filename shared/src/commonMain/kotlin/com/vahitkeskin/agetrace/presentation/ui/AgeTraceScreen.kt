@@ -716,6 +716,7 @@ private fun MainViewport(
                                 )
                             }
                             .pointerInput(pageIndex) {
+                                var accumulatedOverscrollX = 0f
                                 detectTransformGestures { _, pan, zoom, _ ->
                                     val newScale = (zoomScale * zoom).coerceIn(1f, 5f)
                                     zoomScale = newScale
@@ -723,11 +724,40 @@ private fun MainViewport(
                                     if (newScale > 1.02f) {
                                         val maxOffsetX = (size.width * (newScale - 1f)) / 2f
                                         val maxOffsetY = (size.height * (newScale - 1f)) / 2f
+                                        val candidateX = panOffset.x + pan.x
+                                        val clampedX = candidateX.coerceIn(-maxOffsetX, maxOffsetX)
+
+                                        // Edge swipe detection: if at the edge and swiping firmly past it, transition to next/prev image
+                                        if (candidateX > maxOffsetX && pan.x > 0f) {
+                                            accumulatedOverscrollX += pan.x
+                                            if (accumulatedOverscrollX > 60f && pagerState.currentPage > 0) {
+                                                accumulatedOverscrollX = 0f
+                                                coroutineScope.launch {
+                                                    zoomScale = 1f
+                                                    panOffset = Offset.Zero
+                                                    pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                                }
+                                            }
+                                        } else if (candidateX < -maxOffsetX && pan.x < 0f) {
+                                            accumulatedOverscrollX += pan.x
+                                            if (accumulatedOverscrollX < -60f && pagerState.currentPage < pages.size - 1) {
+                                                accumulatedOverscrollX = 0f
+                                                coroutineScope.launch {
+                                                    zoomScale = 1f
+                                                    panOffset = Offset.Zero
+                                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                                }
+                                            }
+                                        } else {
+                                            accumulatedOverscrollX = 0f
+                                        }
+
                                         panOffset = Offset(
-                                            x = (panOffset.x + pan.x).coerceIn(-maxOffsetX, maxOffsetX),
+                                            x = clampedX,
                                             y = (panOffset.y + pan.y).coerceIn(-maxOffsetY, maxOffsetY)
                                         )
                                     } else {
+                                        accumulatedOverscrollX = 0f
                                         panOffset = Offset.Zero
                                     }
                                 }
@@ -784,8 +814,8 @@ private fun MainViewport(
                     }
                 }
 
-                // Floating Glassmorphic ViewPager Navigation Buttons (Previous / Next)
-                if (pages.size > 1 && zoomScale <= 1.05f) {
+                // Floating Glassmorphic ViewPager Navigation Buttons (Previous / Next - Always available across multiple pages)
+                if (pages.size > 1) {
                     // Previous Image Button (Left)
                     if (pagerState.currentPage > 0) {
                         Box(
@@ -802,6 +832,8 @@ private fun MainViewport(
                                 .border(1.2.dp, GlassSpecularBorderBrush, CircleShape)
                                 .clickable {
                                     coroutineScope.launch {
+                                        zoomScale = 1f
+                                        panOffset = Offset.Zero
                                         pagerState.animateScrollToPage(pagerState.currentPage - 1)
                                     }
                                 },
@@ -832,6 +864,8 @@ private fun MainViewport(
                                 .border(1.2.dp, GlassSpecularBorderBrush, CircleShape)
                                 .clickable {
                                     coroutineScope.launch {
+                                        zoomScale = 1f
+                                        panOffset = Offset.Zero
                                         pagerState.animateScrollToPage(pagerState.currentPage + 1)
                                     }
                                 },
@@ -844,6 +878,31 @@ private fun MainViewport(
                                 color = Color.White
                             )
                         }
+                    }
+                }
+
+                // Floating Zoom Reset Pill when zoomed in
+                if (zoomScale > 1.15f) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 12.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Color(0xF00F172A))
+                            .border(1.2.dp, GlassSpecularBorderBrush, RoundedCornerShape(999.dp))
+                            .clickable {
+                                zoomScale = 1f
+                                panOffset = Offset.Zero
+                            }
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "🔍 %${(zoomScale * 100).roundToInt()} • 1x Sıfırla",
+                            color = Color(0xFF38BDF8),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
 
