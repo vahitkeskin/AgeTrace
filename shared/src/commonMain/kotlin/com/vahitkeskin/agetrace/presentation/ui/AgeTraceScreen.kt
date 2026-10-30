@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,7 +42,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -567,6 +570,7 @@ private fun MainViewport(
                 initialPage = state.activePageIndex.coerceIn(0, (pages.size - 1).coerceAtLeast(0)),
                 pageCount = { pages.size }
             )
+            val coroutineScope = rememberCoroutineScope()
 
             var zoomScale by remember { mutableFloatStateOf(1f) }
             var panOffset by remember { mutableStateOf(Offset.Zero) }
@@ -696,239 +700,289 @@ private fun MainViewport(
                     }
                 }
 
-                // Sleek Floating Control Header across top of viewport
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopCenter)
-                        .padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Left Action Group: Rotate + Fullscreen Zoom + Page Indicator
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        // Frosted Glass Rotate Button
-                        GlassmorphicIconButton(
-                            icon = "🔄",
-                            onClick = onRotateClick,
-                            size = 32.dp
-                        )
-
-                        // Frosted Glass Fullscreen Zoom Button
-                        GlassmorphicIconButton(
-                            icon = "⛶",
-                            onClick = onImageClick,
-                            size = 32.dp
-                        )
-
-                        // Multi-page Counter & Add Image Button
-                        if (pages.size > 1) {
-                            Box(
-                                modifier = Modifier
-                                    .height(30.dp)
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(Color(0xCC0F172A))
-                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(999.dp))
-                                    .padding(horizontal = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "${pagerState.currentPage + 1}/${pages.size}",
-                                    color = TextPrimary,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        // Add More Images Button
+                // Floating Glassmorphic ViewPager Navigation Buttons (Previous / Next)
+                if (pages.size > 1 && zoomScale <= 1.05f) {
+                    // Previous Image Button (Left)
+                    if (pagerState.currentPage > 0) {
                         Box(
                             modifier = Modifier
-                                .height(30.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(Color(0x990F172A))
-                                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(999.dp))
-                                .clickable { onPickFileClick() }
-                                .padding(horizontal = 8.dp),
+                                .align(Alignment.CenterStart)
+                                .padding(start = 10.dp)
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        listOf(Color(0x3338BDF8), Color(0xF00F172A))
+                                    )
+                                )
+                                .border(1.2.dp, GlassSpecularBorderBrush, CircleShape)
+                                .clickable {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                    }
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "➕ Ekle",
-                                color = TextPrimary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
+                                text = "‹",
+                                fontSize = 30.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
                             )
                         }
                     }
 
-                    // Right Toggle Group: Custom Blur + Universal Blur + Age Balloon
+                    // Next Image Button (Right)
+                    if (pagerState.currentPage < pages.size - 1) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 10.dp)
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        listOf(Color(0x3338BDF8), Color(0xF00F172A))
+                                    )
+                                )
+                                .border(1.2.dp, GlassSpecularBorderBrush, CircleShape)
+                                .clickable {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "›",
+                                fontSize = 30.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+
+                // Sleek Floating Control Header across top of viewport (horizontally scrollable, no button clipped)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // 1. Frosted Glass Rotate Button
+                    GlassmorphicIconButton(
+                        icon = "🔄",
+                        onClick = onRotateClick,
+                        size = 32.dp
+                    )
+
+                    // 2. Frosted Glass Fullscreen Zoom Button
+                    GlassmorphicIconButton(
+                        icon = "⛶",
+                        onClick = onImageClick,
+                        size = 32.dp
+                    )
+
+                    // 3. Multi-page Counter
+                    if (pages.size > 1) {
+                        Box(
+                            modifier = Modifier
+                                .height(32.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(Color(0xCC0F172A))
+                                .border(1.dp, GlassSpecularBorderBrush, RoundedCornerShape(999.dp))
+                                .padding(horizontal = 9.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${pagerState.currentPage + 1}/${pages.size}",
+                                color = TextPrimary,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // 4. Add More Images Button
+                    Box(
+                        modifier = Modifier
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Color(0x990F172A))
+                            .border(1.dp, GlassSpecularBorderBrush, RoundedCornerShape(999.dp))
+                            .clickable { onPickFileClick() }
+                            .padding(horizontal = 9.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "➕ Ekle",
+                            color = TextPrimary,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // 5. Custom Blur Region Button [ ➕ Sansür ]
                     Row(
+                        modifier = Modifier
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(
+                                brush = if (state.isAddingCustomBlur) {
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xD90284C7), Color(0xB30369A1))
+                                    )
+                                } else {
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xD90F172A), Color(0xB30F172A))
+                                    )
+                                }
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (state.isAddingCustomBlur) AccentBlue else Color(0x33FFFFFF),
+                                shape = RoundedCornerShape(999.dp)
+                            )
+                            .clickable { onToggleCustomBlurMode() }
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "➕", fontSize = 10.sp)
+                        Text(
+                            text = "Sansür",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (state.isAddingCustomBlur) Color.White else TextSecondary
+                        )
+                    }
+
+                    // 6. Universal Face Blur Switch [ 🛡️ Bulanık / 👁️ Net ]
+                    val isBlurActive = state.isBlurAllEnabled || state.isMinorBlurEnabled
+                    val blurThumbOffset by animateDpAsState(
+                        targetValue = if (isBlurActive) 13.dp else 2.dp,
+                        label = "blur_switch"
+                    )
+                    Row(
+                        modifier = Modifier
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(
+                                brush = if (isBlurActive) {
+                                    Brush.verticalGradient(
+                                        listOf(MinorColorBg, Color(0xB3064E3B))
+                                    )
+                                } else {
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xD90F172A), Color(0xB30F172A))
+                                    )
+                                }
+                            )
+                            .border(
+                                width = 1.dp,
+                                brush = if (isBlurActive) {
+                                    Brush.verticalGradient(
+                                        listOf(MinorColor.copy(alpha = 0.8f), MinorColor.copy(alpha = 0.3f))
+                                    )
+                                } else {
+                                    GlassSpecularBorderBrush
+                                },
+                                shape = RoundedCornerShape(999.dp)
+                            )
+                            .clickable { onToggleBlurClick() }
+                            .padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        // Custom Blur Region Toggle Button
-                        Row(
-                            modifier = Modifier
-                                .height(32.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(
-                                    brush = if (state.isAddingCustomBlur) {
-                                        Brush.verticalGradient(
-                                            listOf(Color(0xD90284C7), Color(0xB30369A1))
-                                        )
-                                    } else {
-                                        Brush.verticalGradient(
-                                            listOf(Color(0xD90F172A), Color(0xB30F172A))
-                                        )
-                                    }
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    color = if (state.isAddingCustomBlur) AccentBlue else Color(0x33FFFFFF),
-                                    shape = RoundedCornerShape(999.dp)
-                                )
-                                .clickable { onToggleCustomBlurMode() }
-                                .padding(horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(text = "➕", fontSize = 10.sp)
-                            Text(
-                                text = "Sansür",
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (state.isAddingCustomBlur) Color.White else TextSecondary
-                            )
-                        }
-
-                        val isBlurActive = state.isBlurAllEnabled || state.isMinorBlurEnabled
-                        val blurThumbOffset by animateDpAsState(
-                            targetValue = if (isBlurActive) 13.dp else 2.dp,
-                            label = "blur_switch"
+                        Text(
+                            text = if (isBlurActive) "🛡️ Bulanık" else "👁️ Net",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isBlurActive) MinorColor else TextSecondary,
+                            maxLines = 1,
+                            softWrap = false
                         )
 
-                        val ageBalloonThumbOffset by animateDpAsState(
-                            targetValue = if (state.isAgeBalloonVisible) 13.dp else 2.dp,
-                            label = "age_balloon_switch"
+                        Box(
+                            modifier = Modifier
+                                .width(26.dp)
+                                .height(15.dp)
+                                .clip(CircleShape)
+                                .background(if (isBlurActive) MinorColor else Color(0xFF334155))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = blurThumbOffset, top = 2.dp)
+                                    .size(11.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                            )
+                        }
+                    }
+
+                    // 7. Face Bounding Box & Age Balloon Switch [ 🎯 Yaş & Çerçeve ]
+                    val ageBalloonThumbOffset by animateDpAsState(
+                        targetValue = if (state.isAgeBalloonVisible) 13.dp else 2.dp,
+                        label = "age_balloon_switch"
+                    )
+                    Row(
+                        modifier = Modifier
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(
+                                brush = if (state.isAgeBalloonVisible) {
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xD90284C7), Color(0xB30369A1))
+                                    )
+                                } else {
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xD90F172A), Color(0xB30F172A))
+                                    )
+                                }
+                            )
+                            .border(
+                                width = 1.dp,
+                                brush = if (state.isAgeBalloonVisible) {
+                                    Brush.verticalGradient(
+                                        listOf(AccentBlue, AccentBlue.copy(alpha = 0.4f))
+                                    )
+                                } else {
+                                    GlassSpecularBorderBrush
+                                },
+                                shape = RoundedCornerShape(999.dp)
+                            )
+                            .clickable { onToggleAgeBalloonClick() }
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text(
+                            text = if (state.isAgeBalloonVisible) "🎯 Yaş & Çerçeve" else "⚪ Yaş & Çerçeve",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (state.isAgeBalloonVisible) Color.White else TextSecondary,
+                            maxLines = 1,
+                            softWrap = false
                         )
 
-                        // 1. Universal Face Blur Switch
-                        Row(
+                        Box(
                             modifier = Modifier
-                                .height(32.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(
-                                    brush = if (isBlurActive) {
-                                        Brush.verticalGradient(
-                                            listOf(MinorColorBg, Color(0xB3064E3B))
-                                        )
-                                    } else {
-                                        Brush.verticalGradient(
-                                            listOf(Color(0xD90F172A), Color(0xB30F172A))
-                                        )
-                                    }
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    brush = if (isBlurActive) {
-                                        Brush.verticalGradient(
-                                            listOf(MinorColor.copy(alpha = 0.8f), MinorColor.copy(alpha = 0.3f))
-                                        )
-                                    } else {
-                                        GlassSpecularBorderBrush
-                                    },
-                                    shape = RoundedCornerShape(999.dp)
-                                )
-                                .clickable { onToggleBlurClick() }
-                                .padding(horizontal = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                .width(26.dp)
+                                .height(15.dp)
+                                .clip(CircleShape)
+                                .background(if (state.isAgeBalloonVisible) AccentBlue else Color(0xFF334155))
                         ) {
-                            Text(
-                                text = if (isBlurActive) "🛡️ Bulanık" else "👁️ Net",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isBlurActive) MinorColor else TextSecondary,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-
                             Box(
                                 modifier = Modifier
-                                    .width(26.dp)
-                                    .height(15.dp)
+                                    .padding(start = ageBalloonThumbOffset, top = 2.dp)
+                                    .size(11.dp)
                                     .clip(CircleShape)
-                                    .background(if (isBlurActive) MinorColor else Color(0xFF334155))
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(start = blurThumbOffset, top = 2.dp)
-                                        .size(11.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White)
-                                )
-                            }
-                        }
-
-                        // 2. Age Balloon & Frame Switch
-                        Row(
-                            modifier = Modifier
-                                .height(32.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(
-                                    brush = if (state.isAgeBalloonVisible) {
-                                        Brush.verticalGradient(
-                                            listOf(Color(0xD90369A1), Color(0xB30284C7))
-                                        )
-                                    } else {
-                                        Brush.verticalGradient(
-                                            listOf(Color(0xD90F172A), Color(0xB30F172A))
-                                        )
-                                    }
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    brush = if (state.isAgeBalloonVisible) {
-                                        Brush.verticalGradient(
-                                            listOf(Color(0xFF38BDF8).copy(alpha = 0.8f), Color(0xFF38BDF8).copy(alpha = 0.3f))
-                                        )
-                                    } else {
-                                        GlassSpecularBorderBrush
-                                    },
-                                    shape = RoundedCornerShape(999.dp)
-                                )
-                                .clickable { onToggleAgeBalloonClick() }
-                                .padding(horizontal = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            Text(
-                                text = "🎈 Yaş",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (state.isAgeBalloonVisible) Color(0xFF38BDF8) else TextSecondary,
-                                maxLines = 1,
-                                softWrap = false
+                                    .background(Color.White)
                             )
-
-                            Box(
-                                modifier = Modifier
-                                    .width(26.dp)
-                                    .height(15.dp)
-                                    .clip(CircleShape)
-                                    .background(if (state.isAgeBalloonVisible) Color(0xFF38BDF8) else Color(0xFF334155))
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(start = ageBalloonThumbOffset, top = 2.dp)
-                                        .size(11.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White)
-                                )
-                            }
                         }
                     }
                 }
