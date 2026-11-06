@@ -56,9 +56,10 @@
   - [7.4 Desktop / JVM Bridge (AWT Native FileDialog & C++ Skia Engine)](#74-desktop--jvm-bridge)
 - [8. Interactive UI/UX, ViewPager & Glassmorphism](#8-interactive-uiux-viewpager--glassmorphism)
   - [8.1 Specular Frosted Glassmorphism Design System](#81-specular-frosted-glassmorphism-design-system)
-  - [8.2 Multi-Image ViewPager & Smart Edge-Overscroll Paging](#82-multi-image-viewpager--smart-edge-overscroll-paging)
-  - [8.3 Interactive Face Privacy Anonymization & Custom Blur Zones](#83-interactive-face-privacy-anonymization--custom-blur-zones)
-  - [8.4 Two-Finger Zoom, Pan & Quick Reset Navigation](#84-two-finger-zoom-pan--quick-reset-navigation)
+  - [8.2 Fluid Multi-Image ViewPager & Gesture Decoupling](#82-fluid-multi-image-viewpager--gesture-decoupling)
+  - [8.3 Dedicated Top-Right Glassmorphic Zoom Trigger](#83-dedicated-top-right-glassmorphic-zoom-trigger)
+  - [8.4 Fullscreen Interactive Zoom Viewer & Biometric Parity Engine](#84-fullscreen-interactive-zoom-viewer--biometric-parity-engine)
+  - [8.5 Interactive Face Privacy Anonymization & Custom Blur Overlays](#85-interactive-face-privacy-anonymization--custom-blur-overlays)
 - [9. Global 100-Image Benchmark Suite & Evaluation Report](#9-global-100-image-benchmark-suite--evaluation-report)
   - [9.1 Demographic Cohort Distribution](#91-demographic-cohort-distribution)
   - [9.2 Complete 100-Image Evaluation Results Matrix](#92-complete-100-image-evaluation-results-matrix)
@@ -128,10 +129,11 @@ The AgeTrace computer vision engine was calibrated and verified across a globall
 |  [x] Bilateral Cheek Dermal Roughness Texture Analysis (Sobel Filter)     |
 |  [x] Elimination of False-Aging Bangs/Fringe (Kahkul) Traps              |
 |  [x] Multi-Image ViewPager with Native Left/Right Gesture Swiping         |
-|  [x] Smart Edge-Overscroll Paging during Active Image Zoom               |
-|  [x] Double-Tap & Direct Two-Finger Pinch-to-Zoom (up to 5x magnification)|
+|  [x] Decoupled Gesture Architecture (Fluid Swiping & Zero Lock Latency)   |
+|  [x] Dedicated Fullscreen Interactive Zoom & Biometric Manipulation Engine|
+|  [x] Multi-Touch Pinch-to-Zoom (up to 6x) & Velocity-Damped Panning       |
 |  [x] Interactive Face Privacy Anonymization (Tap to Blur / Unblur Face)  |
-|  [x] Custom Privacy Blur Regions with Adjustable Radius (10dp to 150dp)  |
+|  [x] Custom Free-Form Blur Zones with Resizable Anchors (CustomBlurOverlay) |
 |  [x] Specular Frosted Glassmorphism Dark Theme (OLED Cyberpunk HUD)       |
 |  [x] Multi-Image Gallery Picker (iOS PHPicker & Android PhotoPicker)     |
 |  [x] High-Resolution Clean Image Export to System Photo Gallery          |
@@ -580,46 +582,99 @@ val GlassSpecularBorderBrush = Brush.linearGradient(
 )
 ```
 
-### 8.2 Multi-Image ViewPager & Smart Edge-Overscroll Paging
+### 8.2 Fluid Multi-Image ViewPager & Gesture Decoupling
 
-When multiple images are loaded, AgeTrace renders them inside a Compose `HorizontalPager`.
+When multiple photos are loaded into AgeTrace (via multi-select gallery picker, drag-and-drop, or batch upload), the viewport renders them using Compose Multiplatform's `HorizontalPager`.
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Standard1x: Image Loaded
-    Standard1x --> Zoomed: Pinch or Double-Tap (> 1.15x)
-    Zoomed --> Panning: Single Finger Drag
-    Panning --> Zoomed: Within Image Bounds
-    Panning --> EdgeOverscroll: Dragging past Image Border
-    EdgeOverscroll --> PageTransition: Accumulated Overscroll > 60px
-    PageTransition --> Standard1x: Smoothly Navigate to Next / Prev Image
-    Zoomed --> Standard1x: Tap "1x Sifirla" Badge or Double Tap
+flowchart TD
+    A["User Touch Input"] --> B{"Screen Context"}
+    B -->|"Main Image Viewport"| C["HorizontalPager\n(userScrollEnabled = true)"]
+    C --> D["Natural 1:1 Left/Right Swiping\n(Spring Fling Physics)"]
+    B -->|"Top-Right ⤢ Button"| E["FullscreenZoomableImageViewer\n(Dedicated Modal Canvas)"]
+    E --> F["Multi-Touch Pinch-to-Zoom (1x to 6x)\n& Clamped Two-Finger Pan"]
+    E --> G["Full Biometric Feature Parity\n(Blur Toggle, Custom Blur, Tag Switching)"]
 ```
 
-1. **At 1x Scale (`zoomScale <= 1.05f`):** Native 1:1 ViewPager gesture swiping smoothly transitions between photos.
-2. **When Zoomed (`zoomScale > 1.05f`):** ViewPager swipe lock prevents accidental page flips during panning.
-3. **Smart Edge-Overscroll Threshold:** When the user pans all the way to the edge of a zoomed photo and pulls further past the edge by more than 60 pixels (`accumulatedOverscrollX > 60f`), AgeTrace resets zoom to 1x and animates smoothly to the adjacent photo.
-4. **Persistent Navigation Chevrons (`‹` and `›`):** Always accessible at the left and right edges of the viewport to instantly jump to adjacent images.
+#### Gesture Decoupling Architectural Principle
+In traditional mobile interfaces, combining multi-touch pinch-to-zoom (`detectTransformGestures`) inside a horizontal carousel (`HorizontalPager`) introduces severe pointer contention, inconsistent velocity thresholds, and lock states that degrade navigation fluidness. 
 
-### 8.3 Interactive Face Privacy Anonymization & Custom Blur Zones
+AgeTrace resolves this by **strictly decoupling paging from zooming**:
+1. **Zero-Lock Viewport Navigation:** Inside the main viewport, `HorizontalPager(userScrollEnabled = true)` is unconditionally active. Swiping left and right navigates through uploaded images with 120 FPS fluid spring mechanics and native velocity tracking.
+2. **Clean Canvas Without Clutter:** Floating navigation chevrons (`‹` and `›`) have been removed in favor of edge-to-edge swipe navigation, maximizing viewable screen real estate.
+3. **Single-Tap Biometric Actions:** Tapping any face or custom blur zone directly on the 1x viewport continues to execute immediate blur toggles without gesture latency or accidental page flips.
 
-AgeTrace provides two layers of selective visual privacy protection:
+### 8.3 Dedicated Top-Right Glassmorphic Zoom Trigger
+
+To access deep inspection features without compromising carousel swiping, a dedicated zoom trigger is anchored at the top-right corner of the image card (`Alignment.TopEnd`):
+
+```kotlin
+Box(
+    modifier = Modifier
+        .align(Alignment.TopEnd)
+        .padding(top = 8.dp, end = 8.dp)
+        .size(36.dp)
+        .clip(CircleShape)
+        .background(
+            Brush.radialGradient(
+                listOf(Color(0x6638BDF8), Color(0xF00F172A))
+            )
+        )
+        .border(1.2.dp, GlassSpecularBorderBrushSelected, CircleShape)
+        .clickable { onImageClick() },
+    contentAlignment = Alignment.Center
+) {
+    Text(text = "⤢", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+}
+```
+
+Tapping this button transitions instantly into the **Dedicated Fullscreen Interactive Zoom Viewer**.
+
+### 8.4 Fullscreen Interactive Zoom Viewer & Biometric Parity Engine
+
+Implemented in [`FullscreenZoomableImageViewer.kt`](file:///Users/vahitkeskin/AndroidStudioProjects/AgeTrace/shared/src/commonMain/kotlin/com/vahitkeskin/agetrace/presentation/ui/components/FullscreenZoomableImageViewer.kt), this dedicated fullscreen modal (`Color(0xFA070B14)`) provides high-fidelity biometric inspection and visual manipulation:
+
+```
++-----------------------------------------------------------------------------------------------+
+|  [✕] [🔍 2.5x] [↺ 1x] [‹ 2/5 ›] [🔄] [➕ Sansür] [🛡️ Bulanık] [🎯 Yaş & Çerçeve]                 | <- Glass Header
++-----------------------------------------------------------------------------------------------+
+|                                                                                               |
+|                                                                                               |
+|                                     [ ZOOMED IMAGE ]                                          |
+|                                                                                               |
+|                            (Pinch-to-Zoom 1.0x to 6.0x • Pan)                                 |
+|                             (Tap Face: Toggle Individual Blur)                                |
+|                             (Tap Image: Add Custom Blur Zone)                                 |
+|                                                                                               |
+|                                                                                               |
++-----------------------------------------------------------------------------------------------+
+|  [ 💡 Çift dokunarak yakınlaştırın • Yüze dokunarak sansürleyin • 3 Yüz tespit edildi ]        | <- Info Pill
++-----------------------------------------------------------------------------------------------+
+```
+
+#### Key Capabilities & Feature Parity:
+1. **Multi-Touch Zoom & Damped Pan:** Continuous scale from **$1.0\times$ up to $6.0\times$** with boundary-clamped offset kinematics preventing the image from flying out of view.
+2. **Double-Tap Quick Zoom:** Instant toggle between $1.0\times$ overview and $2.5\times$ target zoom centered around the exact tap focal point.
+3. **Face Hit-Testing with Inverse Spatial Projection:** Mathematical projection transforms the tap coordinate from zoomed/panned screen space back into intrinsic image coordinates, ensuring tap-to-blur works with sub-pixel precision regardless of magnification level.
+4. **Custom Free-Form Blur Zones (`➕ Sansür`):** When active, tapping anywhere creates a custom blur region. The interactive `CustomBlurOverlay` allows users to drag, reposition, and resize blur zones directly on the enlarged image.
+5. **Universal Privacy Switch (`🛡️ Bulanık` / `👁️ Net`):** An animated glassmorphic slider switch toggling privacy blur across all detected subjects simultaneously.
+6. **Biometric HUD Overlay Switch (`🎯 Yaş & Çerçeve` / `⚪ Yaş & Çerçeve`):** Instantly shows or hides facial bounding boxes, confidence tags, and age indicators.
+7. **Direct In-Viewer Page Switching (`‹ 2/5 ›`):** Allows users to move through their multi-image dataset directly inside the fullscreen viewer without dismissing the modal; zooming state automatically resets cleanly upon page transition.
+8. **Lossless Image Rotation (`🔄`):** Rotates the active image in $90^\circ$ increments with real-time recalculation of all face coordinate boundaries.
+
+### 8.5 Interactive Face Privacy Anonymization & Custom Blur Overlays
+
+AgeTrace provides two complementary layers of visual privacy protection:
 
 1. **Face-Selective Tap Anonymization:**
-   - Tap directly on any detected face in the large image viewport to toggle its blur state.
+   - Tap directly on any detected face in either the main viewport or fullscreen viewer to toggle its blur state.
    - When blurred, the face region is convolved with a multi-pass box blur filter. The red cyber box transforms into a frosted anonymized boundary.
    - Tapping the face again instantly restores the original pixels.
-2. **Custom Draggable Blur Zones:**
-   - Activate the **"Bulanık Ekle"** toggle in the floating control bar.
-   - Tap anywhere on the viewport to place a custom blur anchor.
-   - An interactive glassmorphic slider allows dynamic expansion or contraction of the blur radius from **10dp up to 150dp**.
-   - Clear individual zones or wipe all blur regions with a single tap.
-
-### 8.4 Two-Finger Zoom, Pan & Quick Reset Navigation
-
-- **Pinch-to-Zoom:** Natural two-finger pinch gesture scaling from 1x to 5x.
-- **Double-Tap:** Instant toggle between 1x overview and 2.5x targeted magnification.
-- **Floating Quick Reset Badge:** When zoomed (`zoomScale > 1.15f`), a sleek pill badge (`🔍 %X • 1x Sıfırla`) appears at the bottom center to return to 1x with a single tap.
+2. **Custom Draggable Blur Zones (`CustomBlurOverlay`):**
+   - Activate the **"➕ Sansür"** toggle in the floating control bar.
+   - Tap anywhere on the viewport or zoomed canvas to place a custom blur anchor.
+   - Interactive resize anchors allow dragging and resizing custom bounding rectangles over sensitive documents, badges, or background bystanders.
+   - Individual regions can be updated or deleted on-the-fly.
 
 ---
 
@@ -793,7 +848,8 @@ AgeTrace/
 │   │       ├── theme/                        # Colors, Specular Glassmorphism Card
 │   │       └── ui/
 │   │           ├── AgeTraceScreen.kt         # Master Viewport, Pager, Zoom & Controls
-│   │           └── components/               # FaceOverlayCanvas, Balloons, Avatars, etc.
+│   │           └── components/               # FullscreenZoomableImageViewer, CustomBlurOverlay,
+│   │                                         # FaceOverlayCanvas, AgeBalloons, Avatars, etc.
 │   │
 │   ├── src/androidMain/                      # Android actual implementations
 │   ├── src/iosMain/                          # iOS actual implementations (PHPicker, Skia)
@@ -972,19 +1028,32 @@ $$\text{IoU}(B_i, B_j) = \frac{\text{Area}(B_i \cap B_j)}{\text{Area}(B_i \cup B
 
 Boxes with $\text{IoU}(M, B_i) > \theta_{NMS}$ (where $\theta_{NMS} = 0.45$) are suppressed to eliminate redundant multi-scale candidate proposals.
 
-### 14.6 Edge-Overscroll Gesture Kinematics & Pan Bounds Clamping
+### 14.6 Fullscreen Coordinate Transformation & Inverse Projection Kinematics
 
-During active image magnification ($s > 1.0$), horizontal and vertical pan offsets are bounded by viewport dimensions $(W, H)$:
+When an image is magnified by scale factor $s \in [1.0, 6.0]$ and translated by offset $\vec{T} = (T_x, T_y)$, a user touch input at viewport screen coordinate $P_{tap} = (x_{tap}, y_{tap})$ must be mapped back to intrinsic image space $(u, v) \in [0, 1] \times [0, 1]$ to perform collision detection against detected facial bounding boxes and age balloon tags.
 
-$$\text{MaxOffset}_X = \frac{W \cdot (s - 1)}{2}, \quad \text{MaxOffset}_Y = \frac{H \cdot (s - 1)}{2}$$
+Given viewport display dimensions $(W_v, H_v)$ and intrinsic pixel buffer dimensions $(W_{img}, H_{img})$:
 
-$$\Delta X_{clamped} = \text{clamp} \left( X_{pan} + \Delta x, \; -\text{MaxOffset}_X, \; +\text{MaxOffset}_X \right)$$
+1. **Aspect-Ratio Fitting Factor:**
+   $$s_{fit} = \min\left(\frac{W_v}{W_{img}}, \; \frac{H_v}{H_{img}}\right)$$
+   $$W_{render} = W_{img} \cdot s_{fit}, \quad H_{render} = H_{img} \cdot s_{fit}$$
+   $$\text{Offset}_X = \frac{W_v - W_{render}}{2}, \quad \text{Offset}_Y = \frac{H_v - H_{render}}{2}$$
 
-When the pan candidate exceeds the maximum offset, excess delta is accumulated into the overscroll buffer:
+2. **Inverse Pan and Zoom Projection:**
+   $$x_{content} = \frac{x_{tap} - T_x - \frac{W_v}{2}}{s} + \frac{W_v}{2}$$
+   $$y_{content} = \frac{y_{tap} - T_y - \frac{H_v}{2}}{s} + \frac{H_v}{2}$$
 
-$$\text{Overscroll}_X = \begin{cases} \text{Overscroll}_X + \Delta x & \text{if } |X_{pan} + \Delta x| > \text{MaxOffset}_X \\ 0 & \text{otherwise} \end{cases}$$
+3. **Normalized Image Coordinate Mapping:**
+   $$u = \frac{x_{content} - \text{Offset}_X}{W_{render}}, \quad v = \frac{y_{content} - \text{Offset}_Y}{H_{render}}$$
 
-If $\text{Overscroll}_X > +60\text{px}$, the ViewPager scrolls to page $p - 1$; if $\text{Overscroll}_X < -60\text{px}$, it transitions to page $p + 1$, resetting $s = 1.0$.
+4. **Biometric Entity Hit-Testing Criteria:**
+   A face with normalized bounding box $[x_1, y_1, x_2, y_2]$ (with safety margin $\delta = 0.12$) is hit if:
+   $$u \in [x_1 - \delta \cdot w, \; x_2 + \delta \cdot w] \quad \land \quad v \in [y_1 - \delta \cdot h, \; y_2 + \delta \cdot h]$$
+   Similarly, the age balloon tag located at screen coordinates $(x_{balloon}, y_{balloon}, w_{balloon}, h_{balloon})$ is hit if $(x_{content}, y_{content})$ falls within its boundary envelope.
+
+5. **Pan Bounds Clamping:**
+   $$\text{MaxOffset}_X = \frac{W_v \cdot (s - 1)}{2}, \quad \text{MaxOffset}_Y = \frac{H_v \cdot (s - 1)}{2}$$
+   $$T_x \in \left[-\text{MaxOffset}_X, \; +\text{MaxOffset}_X\right], \quad T_y \in \left[-\text{MaxOffset}_Y, \; +\text{MaxOffset}_Y\right]$$
 
 ---
 
