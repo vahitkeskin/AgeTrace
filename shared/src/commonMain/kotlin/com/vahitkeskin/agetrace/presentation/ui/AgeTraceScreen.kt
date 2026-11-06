@@ -343,16 +343,26 @@ fun AgeTraceScreen(
 
         // 3. Fullscreen Interactive Zoom Viewer Overlay
         AnimatedVisibility(
-            visible = isFullscreenOpen && state.displayBitmap != null,
+            visible = isFullscreenOpen && (state.displayBitmap != null || state.currentPage?.displayBitmap != null),
             enter = fadeIn(),
             exit = fadeOut()
         ) {
             FullscreenZoomableImageViewer(
                 state = state,
-                onFaceClick = { face ->
-                    viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id, state.activePageIndex))
-                    viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face, state.activePageIndex))
+                onPageChange = { index -> viewModel.handleIntent(AgeTraceContract.Intent.SelectActivePage(index)) },
+                onFaceClick = { face, pageIndex ->
+                    viewModel.handleIntent(AgeTraceContract.Intent.ToggleFaceBlur(face.id, pageIndex))
+                    viewModel.handleIntent(AgeTraceContract.Intent.SelectFace(face, pageIndex))
                 },
+                onRotateClick = { viewModel.handleIntent(AgeTraceContract.Intent.RotateCurrentImage) },
+                onToggleBlurClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAllBlur) },
+                onToggleAgeBalloonClick = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleAgeBalloon) },
+                onToggleCustomBlurMode = { viewModel.handleIntent(AgeTraceContract.Intent.ToggleCustomBlurMode) },
+                onAddCustomBlur = { normX, normY -> viewModel.handleIntent(AgeTraceContract.Intent.AddCustomBlurRegion(normX, normY)) },
+                onUpdateCustomBlur = { id, normX, normY, normW, normH ->
+                    viewModel.handleIntent(AgeTraceContract.Intent.UpdateCustomBlurRegion(CustomBlurRegion(id, normX, normY, normW, normH)))
+                },
+                onRemoveCustomBlur = { id -> viewModel.handleIntent(AgeTraceContract.Intent.RemoveCustomBlurRegion(id)) },
                 onDismiss = { isFullscreenOpen = false }
             )
         }
@@ -569,12 +579,7 @@ private fun MainViewport(
             )
             val coroutineScope = rememberCoroutineScope()
 
-            var zoomScale by remember { mutableFloatStateOf(1f) }
-            var panOffset by remember { mutableStateOf(Offset.Zero) }
-
             LaunchedEffect(pagerState.currentPage) {
-                zoomScale = 1f
-                panOffset = Offset.Zero
                 if (pagerState.currentPage != state.activePageIndex) {
                     onPageChange(pagerState.currentPage)
                 }
@@ -582,8 +587,6 @@ private fun MainViewport(
 
             LaunchedEffect(state.activePageIndex) {
                 if (state.activePageIndex in 0 until pages.size && pagerState.currentPage != state.activePageIndex) {
-                    zoomScale = 1f
-                    panOffset = Offset.Zero
                     pagerState.animateScrollToPage(state.activePageIndex)
                 }
             }
@@ -593,10 +596,10 @@ private fun MainViewport(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(20.dp))
             ) {
-                // HorizontalPager for smooth left/right swiping between uploaded images (paging locked when zoomed in)
+                // HorizontalPager for 100% smooth left/right swiping between uploaded images
                 HorizontalPager(
                     state = pagerState,
-                    userScrollEnabled = (zoomScale <= 1.05f),
+                    userScrollEnabled = true,
                     modifier = Modifier.fillMaxSize()
                 ) { pageIndex ->
                     val page = pages.getOrNull(pageIndex) ?: return@HorizontalPager
@@ -604,35 +607,15 @@ private fun MainViewport(
                     val pixelBuffer = page.pixelBuffer
 
                     val density = LocalDensity.current
-                    val currentZoomScale by rememberUpdatedState(zoomScale)
-                    val currentPanOffset by rememberUpdatedState(panOffset)
                     val currentFaces by rememberUpdatedState(page.detectedFaces)
                     val currentIsAddingCustomBlur by rememberUpdatedState(state.isAddingCustomBlur)
                     val currentIsAgeBalloonVisible by rememberUpdatedState(state.isAgeBalloonVisible)
 
-                    // Direct two-finger pinch-to-zoom, pan and double-tap zoom inside ViewPager
                     BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxSize()
                             .pointerInput(pageIndex) {
                                 detectTapGestures(
-                                    onDoubleTap = { tapOffset ->
-                                        if (currentZoomScale > 1.15f) {
-                                            zoomScale = 1f
-                                            panOffset = Offset.Zero
-                                        } else {
-                                            val targetScale = 2.5f
-                                            zoomScale = targetScale
-                                            val center = Offset(size.width / 2f, size.height / 2f)
-                                            val diff = center - tapOffset
-                                            val maxOffsetX = (size.width * (targetScale - 1f)) / 2f
-                                            val maxOffsetY = (size.height * (targetScale - 1f)) / 2f
-                                            panOffset = Offset(
-                                                x = (diff.x * 1.5f).coerceIn(-maxOffsetX, maxOffsetX),
-                                                y = (diff.y * 1.5f).coerceIn(-maxOffsetY, maxOffsetY)
-                                            )
-                                        }
-                                    },
                                     onTap = { tapOffset ->
                                         val imgW = pixelBuffer.width.toFloat()
                                         val imgH = pixelBuffer.height.toFloat()
@@ -643,10 +626,8 @@ private fun MainViewport(
                                             val offsetXPx = (size.width.toFloat() - renderedWPx) / 2f
                                             val offsetYPx = (size.height.toFloat() - renderedHPx) / 2f
 
-                                            val centerX = size.width / 2f
-                                            val centerY = size.height / 2f
-                                            val contentX = (tapOffset.x - currentPanOffset.x - centerX) / currentZoomScale + centerX
-                                            val contentY = (tapOffset.y - currentPanOffset.y - centerY) / currentZoomScale + centerY
+                                            val contentX = tapOffset.x
+                                            val contentY = tapOffset.y
 
                                             if (currentIsAddingCustomBlur) {
                                                 val localX = contentX - offsetXPx
@@ -714,66 +695,11 @@ private fun MainViewport(
                                         }
                                     }
                                 )
-                            }
-                            .pointerInput(pageIndex) {
-                                var accumulatedOverscrollX = 0f
-                                detectTransformGestures { _, pan, zoom, _ ->
-                                    val newScale = (zoomScale * zoom).coerceIn(1f, 5f)
-                                    zoomScale = newScale
-
-                                    if (newScale > 1.02f) {
-                                        val maxOffsetX = (size.width * (newScale - 1f)) / 2f
-                                        val maxOffsetY = (size.height * (newScale - 1f)) / 2f
-                                        val candidateX = panOffset.x + pan.x
-                                        val clampedX = candidateX.coerceIn(-maxOffsetX, maxOffsetX)
-
-                                        // Edge swipe detection: if at the edge and swiping firmly past it, transition to next/prev image
-                                        if (candidateX > maxOffsetX && pan.x > 0f) {
-                                            accumulatedOverscrollX += pan.x
-                                            if (accumulatedOverscrollX > 60f && pagerState.currentPage > 0) {
-                                                accumulatedOverscrollX = 0f
-                                                coroutineScope.launch {
-                                                    zoomScale = 1f
-                                                    panOffset = Offset.Zero
-                                                    pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                                                }
-                                            }
-                                        } else if (candidateX < -maxOffsetX && pan.x < 0f) {
-                                            accumulatedOverscrollX += pan.x
-                                            if (accumulatedOverscrollX < -60f && pagerState.currentPage < pages.size - 1) {
-                                                accumulatedOverscrollX = 0f
-                                                coroutineScope.launch {
-                                                    zoomScale = 1f
-                                                    panOffset = Offset.Zero
-                                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                                                }
-                                            }
-                                        } else {
-                                            accumulatedOverscrollX = 0f
-                                        }
-
-                                        panOffset = Offset(
-                                            x = clampedX,
-                                            y = (panOffset.y + pan.y).coerceIn(-maxOffsetY, maxOffsetY)
-                                        )
-                                    } else {
-                                        accumulatedOverscrollX = 0f
-                                        panOffset = Offset.Zero
-                                    }
-                                }
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        // Scaled & Panned Content (Image, Face Overlays, Custom Blur Areas)
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer {
-                                    scaleX = zoomScale
-                                    scaleY = zoomScale
-                                    translationX = panOffset.x
-                                    translationY = panOffset.y
-                                },
+                            modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             if (displayBitmap != null) {
@@ -814,104 +740,36 @@ private fun MainViewport(
                     }
                 }
 
-                // Floating Glassmorphic ViewPager Navigation Buttons (Previous / Next - Always available across multiple pages)
-                if (pages.size > 1) {
-                    // Previous Image Button (Left)
-                    if (pagerState.currentPage > 0) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .padding(start = 10.dp)
-                                .size(42.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.radialGradient(
-                                        listOf(Color(0x3338BDF8), Color(0xF00F172A))
-                                    )
-                                )
-                                .border(1.2.dp, GlassSpecularBorderBrush, CircleShape)
-                                .clickable {
-                                    coroutineScope.launch {
-                                        zoomScale = 1f
-                                        panOffset = Offset.Zero
-                                        pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "‹",
-                                fontSize = 30.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                // Dedicated Glassmorphic Zoom/Expand Button in the top-right corner of the image viewport
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 8.dp, end = 8.dp)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                listOf(Color(0x6638BDF8), Color(0xF00F172A))
                             )
-                        }
-                    }
-
-                    // Next Image Button (Right)
-                    if (pagerState.currentPage < pages.size - 1) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(end = 10.dp)
-                                .size(42.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.radialGradient(
-                                        listOf(Color(0x3338BDF8), Color(0xF00F172A))
-                                    )
-                                )
-                                .border(1.2.dp, GlassSpecularBorderBrush, CircleShape)
-                                .clickable {
-                                    coroutineScope.launch {
-                                        zoomScale = 1f
-                                        panOffset = Offset.Zero
-                                        pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "›",
-                                fontSize = 30.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-
-                // Floating Zoom Reset Pill when zoomed in
-                if (zoomScale > 1.15f) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 12.dp)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(Color(0xF00F172A))
-                            .border(1.2.dp, GlassSpecularBorderBrush, RoundedCornerShape(999.dp))
-                            .clickable {
-                                zoomScale = 1f
-                                panOffset = Offset.Zero
-                            }
-                            .padding(horizontal = 14.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "🔍 %${(zoomScale * 100).roundToInt()} • 1x Sıfırla",
-                            color = Color(0xFF38BDF8),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
                         )
-                    }
+                        .border(1.2.dp, GlassSpecularBorderBrushSelected, CircleShape)
+                        .clickable { onImageClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "⤢",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 }
 
-                // Sleek Floating Control Header across top of viewport (horizontally scrollable, no button clipped)
+                // Sleek Floating Control Header across top of viewport (horizontally scrollable, dedicated room for top-right zoom button)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.TopCenter)
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                        .padding(start = 8.dp, end = 48.dp, top = 6.dp, bottom = 6.dp)
                         .horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -923,14 +781,7 @@ private fun MainViewport(
                         size = 32.dp
                     )
 
-                    // 2. Frosted Glass Fullscreen Zoom Button
-                    GlassmorphicIconButton(
-                        icon = "⛶",
-                        onClick = onImageClick,
-                        size = 32.dp
-                    )
-
-                    // 3. Multi-page Counter
+                    // 2. Multi-page Counter
                     if (pages.size > 1) {
                         Box(
                             modifier = Modifier
@@ -1150,36 +1001,6 @@ private fun MainViewport(
                     }
                 }
 
-                // Floating Zoom Reset Indicator when zoomed in
-                if (zoomScale > 1.05f) {
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(8.dp)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(Color(0xD90F172A))
-                            .border(1.dp, AccentBlue.copy(alpha = 0.8f), RoundedCornerShape(999.dp))
-                            .clickable {
-                                zoomScale = 1f
-                                panOffset = Offset.Zero
-                            }
-                            .padding(horizontal = 10.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "🔍 %${(zoomScale * 100).roundToInt()}",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentBlue
-                        )
-                        Text(
-                            text = "• Sıfırla",
-                            fontSize = 10.5.sp,
-                            color = TextPrimary
-                        )
-                    }
-                }
 
                 // Sleek Floating Export Buttons at bottom-end of viewport
                 Row(
